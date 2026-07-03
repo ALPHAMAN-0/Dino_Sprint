@@ -85,6 +85,8 @@
 		<Unit filename="src/InputManager.cpp" />
 		<Unit filename="src/Background.h" />
 		<Unit filename="src/Background.cpp" />
+		<Unit filename="src/Birds.h" />
+		<Unit filename="src/Birds.cpp" />
 		<Unit filename="src/Dino.h" />
 		<Unit filename="src/Dino.cpp" />
 		<Unit filename="src/Obstacle.h" />

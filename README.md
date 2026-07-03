@@ -37,4 +37,4 @@ A generated placeholder ships at `assets/background.png` — **replace it with y
 
 ## Project structure
 
-Every game element is its own module in `src/` — `Background` (fully implemented endless-scroll), plus wired stubs ready to fill in: `Dino`, `Obstacle`, `PointsItem`, `Dragon`, `Score`, `InputManager`, `GameState`. Shared tuning constants live in `src/Config.h`; `vendor/stb_image.h` is the single-header image loader (public domain, no library install).
+Every game element is its own module in `src/` — `Background` (fully implemented endless-scroll), `Birds` (animated flapping silhouettes drifting across the sky), plus wired stubs ready to fill in: `Dino`, `Obstacle`, `PointsItem`, `Dragon`, `Score`, `InputManager`, `GameState`. Shared tuning constants live in `src/Config.h`; `vendor/stb_image.h` is the single-header image loader (public domain, no library install).

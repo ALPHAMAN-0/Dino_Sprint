@@ -16,6 +16,7 @@
 #include "GameState.h"
 #include "InputManager.h"
 #include "Background.h"
+#include "Birds.h"
 #include "Dino.h"
 #include "Obstacle.h"
 #include "PointsItem.h"
@@ -25,6 +26,7 @@
 static GameState    gState;
 static InputManager gInput;
 static Background   gBackground;
+static Birds        gBirds;
 static Dino         gDino;
 static Obstacle     gObstacle;
 static PointsItem   gPoints;
@@ -37,6 +39,7 @@ static void onDisplay() {
     glLoadIdentity();
 
     gBackground.draw();
+    gBirds.draw();     // behind the gameplay elements, in front of the sky
     gDino.draw();
     gObstacle.draw();
     gPoints.draw();
@@ -78,6 +81,7 @@ static void onTimer(int /*value*/) {
     if (dt > cfg::MAX_DT) dt = cfg::MAX_DT;
 
     gBackground.update(dt, gState.speedMultiplier());
+    gBirds.update(dt, gState);
     gDino.update(dt, gState);
     gObstacle.update(dt, gState);
     gPoints.update(dt, gState);
@@ -134,6 +138,7 @@ int main(int argc, char** argv) {
     gState.init();
     gInput.init();
     gBackground.init();   // texture upload — must come after glutCreateWindow
+    gBirds.init();
     gDino.init();
     gObstacle.init();
     gPoints.init();
