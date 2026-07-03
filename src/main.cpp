@@ -34,9 +34,50 @@ static Dragon       gDragon;
 static Score        gScore;
 static int          gPrevTimeMs = 0;
 
+static void menuText(float x, float y, const char* s, void* font) {
+    glRasterPos2f(x, y);
+    for (const char* c = s; *c; ++c)
+        glutBitmapCharacter(font, *c);
+}
+
+static void menuCenteredText(float y, const char* s, void* font) {
+    float halfW = 0.5f * (float)glutBitmapLength(font, (const unsigned char*)s);
+    menuText(cfg::LOGICAL_W * 0.5f - halfW, y, s, font);
+}
+
+// Start screen: pick a world. Kept in main.cpp because it is pure UI glue,
+// not a game element.
+static void drawMenu() {
+    glBegin(GL_QUADS);   // dusk gradient backdrop
+        glColor3f(0.13f, 0.10f, 0.16f);
+        glVertex2f(0.0f, 0.0f);
+        glVertex2f(cfg::LOGICAL_W, 0.0f);
+        glColor3f(0.30f, 0.18f, 0.20f);
+        glVertex2f(cfg::LOGICAL_W, cfg::LOGICAL_H);
+        glVertex2f(0.0f, cfg::LOGICAL_H);
+    glEnd();
+
+    glColor3f(0.96f, 0.88f, 0.70f);
+    menuCenteredText(272.0f, "DINO SPRINT", GLUT_BITMAP_TIMES_ROMAN_24);
+    glColor3f(0.93f, 0.72f, 0.35f);
+    menuCenteredText(206.0f, "[ 1 ]  DESERT", GLUT_BITMAP_HELVETICA_18);
+    glColor3f(0.55f, 0.85f, 0.55f);
+    menuCenteredText(170.0f, "[ 2 ]  JUNGLE", GLUT_BITMAP_HELVETICA_18);
+    glColor3f(0.70f, 0.66f, 0.60f);
+    menuCenteredText(110.0f, "press 1 or 2 to choose your world", GLUT_BITMAP_HELVETICA_12);
+    menuCenteredText(84.0f,  "in game: + / - speed,  B back to menu,  ESC quit",
+                     GLUT_BITMAP_HELVETICA_12);
+}
+
 static void onDisplay() {
     glClear(GL_COLOR_BUFFER_BIT);   // ignores the viewport: repaints letterbox bars too
     glLoadIdentity();
+
+    if (gState.mode() == Mode::Menu) {
+        drawMenu();
+        glutSwapBuffers();
+        return;
+    }
 
     gBackground.draw();
     gBirds.draw();     // behind the gameplay elements, in front of the sky
@@ -80,29 +121,59 @@ static void onTimer(int /*value*/) {
     // the world doesn't teleport when it resumes.
     if (dt > cfg::MAX_DT) dt = cfg::MAX_DT;
 
-    gState.advanceTime(dt);   // day/night cycle first: everyone reads it this frame
-    gBackground.update(dt, gState);
-    gBirds.update(dt, gState);
-    gDino.update(dt, gState);
-    gObstacle.update(dt, gState);
-    gPoints.update(dt, gState);
-    gDragon.update(dt, gState);
-    gScore.update(dt, gState);
+    if (gState.mode() == Mode::Playing) {   // the world stands still on the menu
+        gState.advanceTime(dt);   // day/night cycle first: everyone reads it this frame
+        gBackground.update(dt, gState);
+        gBirds.update(dt, gState);
+        gDino.update(dt, gState);
+        gObstacle.update(dt, gState);
+        gPoints.update(dt, gState);
+        gDragon.update(dt, gState);
+        gScore.update(dt, gState);
+    }
 
     glutPostRedisplay();
     glutTimerFunc(cfg::FRAME_MS, onTimer, 0);   // one-shot timer: must re-register
 }
 
+// Menu selection: (re)load the chosen world's texture and reset the run.
+static void startGame(Theme theme) {
+    gState.init();               // fresh speed, lives, day/night clock
+    gState.setTheme(theme);
+    gState.setMode(Mode::Playing);
+    gBackground.loadTheme(theme);
+    gBirds.init();
+    gObstacle.init();
+    gScore.init();
+    gDino.init();
+    gPoints.init();
+    gDragon.init();
+}
+
 static void onKeyDown(unsigned char key, int x, int y) {
     gInput.onKeyDown(key, x, y);
+
+    if (key == 27)   // ESC — Apple GLUT's glutMainLoop never returns; exit here
+        std::exit(0);
+
+    if (gState.mode() == Mode::Menu) {
+        switch (key) {
+            case '1': case 'd': case 'D': startGame(Theme::Desert); break;
+            case '2': case 'j': case 'J': startGame(Theme::Jungle); break;
+            default: break;
+        }
+        return;
+    }
+
     switch (key) {
-        case 27:   // ESC — Apple GLUT's glutMainLoop never returns; exit here
-            std::exit(0);
         case '+': case '=':   // temporary speed test keys
             gState.adjustSpeed(+cfg::SPEED_STEP);
             break;
         case '-': case '_':
             gState.adjustSpeed(-cfg::SPEED_STEP);
+            break;
+        case 'b': case 'B':   // back to the world-select menu
+            gState.setMode(Mode::Menu);
             break;
         default:
             break;

@@ -29,15 +29,38 @@ void Background::init() {
     // makes v=0 the photo's bottom, so the dark foreground strip is exactly
     // v in [0, FOREGROUND_SPLIT] — all v-coordinate math below relies on this.
     stbi_set_flip_vertically_on_load(1);
+    // The actual texture is loaded by loadTheme() once the player picks a
+    // world on the start menu.
+}
 
-    const char* candidates[] = {
-        "assets/background.png",
+void Background::loadTheme(Theme t) {
+    m_theme = t;
+
+    // Switching themes replaces the texture; free the previous one.
+    if (m_texId != 0) {
+        glDeleteTextures(1, &m_texId);
+        m_texId = 0;
+    }
+    m_loaded = false;
+
+    static const char* desertPaths[] = {
+        "assets/background_desert.png",
+        "assets/background.png",          // legacy name, still accepted
         "assets/background.jpg",
         "assets/background.jpeg",
     };
-    for (const char* path : candidates) {
-        if (loadTexture(path)) {
-            std::printf("[Dino Sprint] background loaded: %s (%dx%d)\n", path, m_imgW, m_imgH);
+    static const char* junglePaths[] = {
+        "assets/background_jungle.png",
+        "assets/background_jungle.jpg",
+        "assets/background_jungle.jpeg",
+    };
+    const char* const* candidates = (t == Theme::Jungle) ? junglePaths : desertPaths;
+    const int count = (t == Theme::Jungle) ? 3 : 4;
+
+    for (int i = 0; i < count; ++i) {
+        if (loadTexture(candidates[i])) {
+            std::printf("[Dino Sprint] background loaded: %s (%dx%d)\n",
+                        candidates[i], m_imgW, m_imgH);
             std::fflush(stdout);
             break;
         }
@@ -50,10 +73,15 @@ void Background::init() {
     } else {
         m_tileW = cfg::LOGICAL_W;
         std::fprintf(stderr,
-            "[Dino Sprint] WARNING: could not load assets/background.png (or .jpg/.jpeg).\n"
-            "[Dino Sprint] Put your desert image at <repo>/assets/background.png and run from the repo root.\n"
-            "[Dino Sprint] Running with procedural fallback background.\n");
+            "[Dino Sprint] WARNING: could not load %s.\n"
+            "[Dino Sprint] Put the image in <repo>/assets/ and run from the repo root.\n"
+            "[Dino Sprint] Running with procedural fallback background.\n",
+            candidates[0]);
     }
+
+    // Fresh scroll for the new world.
+    m_scrollFar = 0.0f;
+    m_scrollNear = 0.0f;
 }
 
 static int nextPow2(int v) {
@@ -180,8 +208,7 @@ void Background::drawLayer(float offset, float v0, float v1, float y0, float y1)
 
 void Background::draw() const {
     if (!m_loaded) {
-        drawFallback();
-        drawSun();
+        drawFallback();   // draws the sun itself, between its sky and ground
         drawNightSky();
         return;
     }
@@ -205,11 +232,20 @@ void Background::draw() const {
     // Each band fills the same screen fraction it occupies in the image, so at
     // scroll=0 the two bands reassemble the original photo exactly.
     drawLayer(m_scrollFar, vSplit + inset, m_vMax - inset, splitY, cfg::LOGICAL_H);
-    // Near layer: the blurred dark rock strip, NEAR_LAYER_FACTOR x speed.
+
+    // The sun is drawn BETWEEN the layers: in front of the far scenery but
+    // behind the near road strip, so as it sinks it is genuinely swallowed
+    // by the road — a real sunset occlusion, not a fade in mid-air.
+    glDisable(GL_TEXTURE_2D);
+    drawSun();
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, m_texId);
+    glColor3f(tint, tint, tint);   // drawSun changed the current color
+
+    // Near layer: the blurred dark road strip, NEAR_LAYER_FACTOR x speed.
     drawLayer(m_scrollNear, inset, vSplit - inset, 0.0f, splitY);
 
     glDisable(GL_TEXTURE_2D);
-    drawSun();
     drawNightSky();
     drawWindowLights();   // after the night wash so the glow stays bright
 }
@@ -221,12 +257,14 @@ void Background::draw() const {
 // Rects are normalized to the placeholder image (u from left, v from bottom);
 // if the background art is swapped, update or remove kHouseLights.
 void Background::drawWindowLights() const {
+    if (m_theme != Theme::Desert) return;   // the house is desert-only art
     if (m_darkness <= 0.15f) return;
 
+    // Pane rects from the generator (image coords / 1000 wide, / 400 tall).
     static const struct { float u, v, w, h; } kHouseLights[] = {
-        { 0.648f, 0.240f, 0.010f, 0.0225f },   // left window
-        { 0.692f, 0.240f, 0.010f, 0.0225f },   // right window
-        { 0.668f, 0.200f, 0.015f, 0.0550f },   // doorway
+        { 0.649f, 0.3225f, 0.012f, 0.0225f },   // left window pane
+        { 0.699f, 0.3225f, 0.012f, 0.0225f },   // right window pane
+        { 0.673f, 0.2700f, 0.014f, 0.0625f },   // doorway pane
     };
 
     const float a = (m_darkness - 0.15f) / 0.85f;   // ramp in with the dark
@@ -277,31 +315,34 @@ static void drawDisc(float cx, float cy, float r) {
 
 // The sun is drawn in code, not baked into the image: anything inside the
 // tiled texture repeats with every (mirrored) copy — a baked sun shows up
-// twice whenever the screen spans a tile junction. It sinks smoothly with
-// the day/night cycle, but the texture is opaque, so it CANNOT pass behind
-// the rocks — instead its descent stays inside the sky band above the
-// skyline and it fades into the dusk haze before its disc could touch the
-// buildings, which reads as setting behind the horizon.
+// twice whenever the screen spans a tile junction. It is drawn between the
+// far layer and the near road strip, so its descent ends BEHIND the road:
+// the strip progressively swallows the disc as it sets. On the way down its
+// color shifts from warm daylight white to deep sunset red.
 void Background::drawSun() const {
-    // Fully faded while the disc is still above the tallest scenery.
-    float fade = m_sunAlt / 0.30f;
-    if (fade > 1.0f) fade = 1.0f;
-    if (fade <= 0.0f) return;
+    if (m_theme == Theme::Jungle) return;   // under canopy: no direct sunlight
+    if (m_sunAlt <= 0.0f) return;   // fully set — completely behind the road
 
-    const float cx = cfg::LOGICAL_W * 0.80f;                    // right side
-    const float skylineY = cfg::LOGICAL_H * 0.64f;              // above the rock tops
-    const float topY     = cfg::LOGICAL_H * 0.82f;
-    const float cy = skylineY + (topY - skylineY) * m_sunAlt;   // sinks smoothly
+    const float cx   = cfg::LOGICAL_W * 0.80f;                // right side
+    const float lowY = 36.0f;                                 // disc top < road top: hidden
+    const float topY = cfg::LOGICAL_H * 0.82f;
+    const float cy   = lowY + (topY - lowY) * m_sunAlt;       // sinks smoothly
+
+    // Redden with descent: s=0 high noon, s=1 touching the horizon.
+    const float s = 1.0f - m_sunAlt;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    const struct { float r, cr, cg, cb, ca; } rings[3] = {
-        { 95.0f, 1.00f, 0.93f, 0.78f, 0.18f },   // outer glow
-        { 60.0f, 1.00f, 0.94f, 0.80f, 0.35f },   // halo
-        { 36.0f, 1.00f, 0.96f, 0.86f, 1.00f },   // core disc
+    const struct { float r, cg, cb, ca; } rings[3] = {
+        { 95.0f, 0.93f, 0.78f, 0.18f },   // outer glow
+        { 60.0f, 0.94f, 0.80f, 0.35f },   // halo
+        { 36.0f, 0.96f, 0.86f, 1.00f },   // core disc
     };
     for (const auto& ring : rings) {
-        glColor4f(ring.cr, ring.cg, ring.cb, ring.ca * fade);
+        glColor4f(1.0f,                       // red stays full
+                  ring.cg - 0.62f * s,        // green drops -> orange
+                  ring.cb - 0.72f * s,        // blue drops  -> red
+                  ring.ca);
         drawDisc(cx, cy, ring.r);
     }
     glDisable(GL_BLEND);
@@ -324,6 +365,13 @@ void Background::drawNightSky() const {
         glVertex2f(cfg::LOGICAL_W, cfg::LOGICAL_H);
         glVertex2f(0.0f, cfg::LOGICAL_H);
     glEnd();
+
+    // Jungle nights are canopy-dark: the blue wash above is the whole effect —
+    // no stars, no moon (the sky is not visible through the trees).
+    if (m_theme == Theme::Jungle) {
+        glDisable(GL_BLEND);
+        return;
+    }
 
     // Twinkling stars: fixed pseudo-random sky positions, alpha follows
     // darkness so they fade in through dusk and out at dawn.
@@ -355,19 +403,25 @@ void Background::drawNightSky() const {
 void Background::drawFallback() const {
     const float splitY = cfg::LOGICAL_H * cfg::FOREGROUND_SPLIT;
     const float t = 1.0f - 0.55f * m_darkness;   // same night dimming as the texture path
+    const bool jungle = (m_theme == Theme::Jungle);
 
-    // Dusk sky gradient.
+    // Sky gradient: warm dusk for desert, misty teal for jungle.
     glBegin(GL_QUADS);
-        glColor3f(0.91f * t, 0.62f * t, 0.36f * t);   // warm horizon orange
+        if (jungle) glColor3f(0.55f * t, 0.75f * t, 0.70f * t);   // bright mist
+        else        glColor3f(0.91f * t, 0.62f * t, 0.36f * t);   // horizon orange
         glVertex2f(0.0f, splitY);
         glVertex2f(cfg::LOGICAL_W, splitY);
-        glColor3f(0.28f * t, 0.24f * t, 0.33f * t);   // dusty violet-blue top
+        if (jungle) glColor3f(0.10f * t, 0.22f * t, 0.22f * t);   // dark canopy top
+        else        glColor3f(0.28f * t, 0.24f * t, 0.33f * t);   // violet-blue top
         glVertex2f(cfg::LOGICAL_W, cfg::LOGICAL_H);
         glVertex2f(0.0f, cfg::LOGICAL_H);
     glEnd();
 
+    drawSun();   // desert only (no-op in jungle); occluded by the ground below
+
     // Ground band.
-    glColor3f(0.24f * t, 0.15f * t, 0.10f * t);
+    if (jungle) glColor3f(0.20f * t, 0.32f * t, 0.14f * t);
+    else        glColor3f(0.24f * t, 0.15f * t, 0.10f * t);
     glBegin(GL_QUADS);
         glVertex2f(0.0f, 0.0f);
         glVertex2f(cfg::LOGICAL_W, 0.0f);

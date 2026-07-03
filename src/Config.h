@@ -21,6 +21,10 @@ constexpr float SPEED_MIN  = 0.25f;
 constexpr float SPEED_MAX  = 3.0f;
 constexpr float SPEED_STEP = 0.25f;
 
+// Gameplay ground plane (inside the near road strip): where the dino runs
+// and obstacles stand.
+constexpr float GROUND_Y = 30.0f;
+
 // Day/night cycle: the sun sinks smoothly for the whole day (visibly lower
 // every 10 s, fully set at 60 s), night brings moon + stars, then sunrise.
 constexpr float DAY_SECONDS     = 60.0f;

@@ -6,7 +6,13 @@
 void GameState::init() {
     m_speedMultiplier = 1.0f;
     m_cycleTime = 0.0f;
+    m_lives = 3;
     m_running = true;
+}
+
+void GameState::loseLife() {
+    if (m_lives > 0) --m_lives;
+    if (m_lives == 0) m_running = false;
 }
 
 void GameState::advanceTime(float dt) {

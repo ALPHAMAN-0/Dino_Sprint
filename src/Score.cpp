@@ -8,6 +8,7 @@
 #include <GL/glut.h>
 #endif
 
+#include <cmath>
 #include <cstdio>
 
 void Score::init() {
@@ -17,6 +18,29 @@ void Score::init() {
 void Score::update(float dt, GameState& state) {
     if (state.isRunning()) m_elapsed += dt;
     m_darkness = state.darkness();
+    m_lives = state.lives();
+    m_theme = state.theme();
+}
+
+// Filled heart: two lobes (triangle fans) over a point-down triangle.
+void Score::drawHeart(float cx, float cy, float s) const {
+    const float lobeR = 0.52f * s;
+    const float lobeY = cy + 0.30f * s;
+    for (int side = -1; side <= 1; side += 2) {
+        float lx = cx + (float)side * 0.46f * s;
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(lx, lobeY);
+        for (int i = 0; i <= 16; ++i) {
+            float a = (float)i * (2.0f * 3.14159265f / 16.0f);
+            glVertex2f(lx + lobeR * (float)cos(a), lobeY + lobeR * (float)sin(a));
+        }
+        glEnd();
+    }
+    glBegin(GL_TRIANGLES);
+        glVertex2f(cx - 0.98f * s, lobeY + 0.05f * s);
+        glVertex2f(cx + 0.98f * s, lobeY + 0.05f * s);
+        glVertex2f(cx, cy - 1.0f * s);
+    glEnd();
 }
 
 void Score::drawText(float x, float y, const char* s) const {
@@ -41,9 +65,21 @@ void Score::draw() const {
     float y = cfg::LOGICAL_H - 28.0f;
 
     // Dark text on the bright day sky, flipping to light text as night falls.
-    const float d = m_darkness;
+    // The jungle's canopy top is dark even at noon, so treat it as night.
+    const float d = (m_theme == Theme::Jungle) ? 1.0f : m_darkness;
     glColor3f(0.98f - 0.88f * d, 0.92f - 0.82f * d, 0.80f - 0.62f * d);   // shadow
     drawText(x + 1.5f, y - 1.5f, buf);
     glColor3f(0.25f + 0.70f * d, 0.16f + 0.76f * d, 0.10f + 0.70f * d);   // main
     drawText(x, y, buf);
+
+    // Lives: hearts in the top-right corner.
+    const float heartS = 11.0f;
+    const float heartY = cfg::LOGICAL_H - 32.0f;
+    for (int i = 0; i < m_lives; ++i) {
+        float cx = cfg::LOGICAL_W - 34.0f - (float)i * 30.0f;
+        glColor3f(0.30f, 0.06f, 0.08f);              // dark outline-ish backing
+        drawHeart(cx + 1.0f, heartY - 1.0f, heartS);
+        glColor3f(0.88f, 0.16f, 0.22f);              // red heart
+        drawHeart(cx, heartY, heartS);
+    }
 }

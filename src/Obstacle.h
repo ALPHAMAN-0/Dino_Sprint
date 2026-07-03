@@ -3,14 +3,29 @@
 
 class GameState;
 
-// Ground obstacles that scroll toward the dino; collision ends the run.
-// Will manage a pool of obstacles spawned off-screen right, moving at
-// BASE_SCROLL_SPEED * NEAR_LAYER_FACTOR * speedMultiplier (ground-plane speed).
+// Ground obstacles: dark rock spikes standing on the road strip, scrolling
+// toward the dino at ground speed (near-layer speed x the game multiplier).
+// Each one respawns off-screen right with a fresh random size and gap.
+// Collision with the Dino (loseLife) hooks in once the Dino exists.
 class Obstacle {
 public:
     void init();
     void update(float dt, GameState& state);
     void draw() const;
+
+private:
+    struct Rock {
+        float x = 0.0f;      // left edge
+        float w = 30.0f;
+        float h = 50.0f;
+        bool  twin = false;  // single spike or a double one
+    };
+
+    static const int COUNT = 3;
+    Rock  m_rocks[COUNT];
+    float m_darkness = 0.0f;
+
+    void respawn(Rock& r, float x);
 };
 
 #endif // OBSTACLE_H

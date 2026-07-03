@@ -1,7 +1,7 @@
 #ifndef BACKGROUND_H
 #define BACKGROUND_H
 
-class GameState;
+#include "GameState.h"   // Theme
 
 // Endless-scrolling desert background.
 //
@@ -14,6 +14,7 @@ class GameState;
 class Background {
 public:
     void init();                                  // call AFTER glutCreateWindow (needs GL context)
+    void loadTheme(Theme t);                      // (re)loads the theme's texture; GL context required
     void update(float dt, const GameState& state);
     void draw() const;
     bool hasTexture() const { return m_loaded; }
@@ -40,6 +41,7 @@ private:
     float m_sunAlt = 1.0f;        // cached from GameState each update
     float m_darkness = 0.0f;
     float m_skyTime = 0.0f;       // drives star twinkle
+    Theme m_theme = Theme::Desert;
 };
 
 #endif // BACKGROUND_H
