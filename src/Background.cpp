@@ -211,6 +211,57 @@ void Background::draw() const {
     glDisable(GL_TEXTURE_2D);
     drawSun();
     drawNightSky();
+    drawWindowLights();   // after the night wash so the glow stays bright
+}
+
+// The adobe house's windows and doorway light up at night. The house is
+// baked into the scrolling far layer, so the light quads are placed with the
+// SAME tile transform drawLayer uses (including the horizontal flip of every
+// odd tile) — the glow rides exactly on the house and its mirrored copies.
+// Rects are normalized to the placeholder image (u from left, v from bottom);
+// if the background art is swapped, update or remove kHouseLights.
+void Background::drawWindowLights() const {
+    if (m_darkness <= 0.15f) return;
+
+    static const struct { float u, v, w, h; } kHouseLights[] = {
+        { 0.648f, 0.240f, 0.010f, 0.0225f },   // left window
+        { 0.692f, 0.240f, 0.010f, 0.0225f },   // right window
+        { 0.668f, 0.200f, 0.015f, 0.0550f },   // doorway
+    };
+
+    const float a = (m_darkness - 0.15f) / 0.85f;   // ramp in with the dark
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    int kFirst = (int)std::floor(m_scrollFar / m_tileW);
+    int kLast  = (int)std::floor((m_scrollFar + cfg::LOGICAL_W) / m_tileW);
+    for (int k = kFirst; k <= kLast; ++k) {
+        bool mirrored = (k & 1) != 0;
+        float tileX = (float)k * m_tileW - m_scrollFar;
+        for (const auto& L : kHouseLights) {
+            float un = mirrored ? 1.0f - L.u - L.w : L.u;
+            float x0 = tileX + un * m_tileW;
+            float x1 = x0 + L.w * m_tileW;
+            float y0 = L.v * cfg::LOGICAL_H;
+            float y1 = y0 + L.h * cfg::LOGICAL_H;
+            // soft glow halo, then the bright pane
+            glColor4f(1.0f, 0.72f, 0.32f, 0.25f * a);
+            glBegin(GL_QUADS);
+                glVertex2f(x0 - 4.0f, y0 - 4.0f);
+                glVertex2f(x1 + 4.0f, y0 - 4.0f);
+                glVertex2f(x1 + 4.0f, y1 + 4.0f);
+                glVertex2f(x0 - 4.0f, y1 + 4.0f);
+            glEnd();
+            glColor4f(1.0f, 0.85f, 0.45f, 0.90f * a);
+            glBegin(GL_QUADS);
+                glVertex2f(x0, y0);
+                glVertex2f(x1, y0);
+                glVertex2f(x1, y1);
+                glVertex2f(x0, y1);
+            glEnd();
+        }
+    }
+    glDisable(GL_BLEND);
 }
 
 // Filled disc with the current glColor (GL 1.1-safe triangle fan).
@@ -227,19 +278,20 @@ static void drawDisc(float cx, float cy, float r) {
 // The sun is drawn in code, not baked into the image: anything inside the
 // tiled texture repeats with every (mirrored) copy — a baked sun shows up
 // twice whenever the screen spans a tile junction. It sinks smoothly with
-// the day/night cycle and fades into the horizon haze as it sets (the tiled
-// texture is opaque, so it cannot pass behind the rocks; fading reads the
-// same at a glance and avoids overlap artifacts).
+// the day/night cycle, but the texture is opaque, so it CANNOT pass behind
+// the rocks — instead its descent stays inside the sky band above the
+// skyline and it fades into the dusk haze before its disc could touch the
+// buildings, which reads as setting behind the horizon.
 void Background::drawSun() const {
-    // Fade out over the last quarter of the descent; gone when fully set.
-    float fade = m_sunAlt / 0.25f;
+    // Fully faded while the disc is still above the tallest scenery.
+    float fade = m_sunAlt / 0.30f;
     if (fade > 1.0f) fade = 1.0f;
     if (fade <= 0.0f) return;
 
     const float cx = cfg::LOGICAL_W * 0.80f;                    // right side
-    const float horizonY = cfg::LOGICAL_H * cfg::FOREGROUND_SPLIT + 15.0f;
+    const float skylineY = cfg::LOGICAL_H * 0.64f;              // above the rock tops
     const float topY     = cfg::LOGICAL_H * 0.82f;
-    const float cy = horizonY + (topY - horizonY) * m_sunAlt;   // sinks smoothly
+    const float cy = skylineY + (topY - skylineY) * m_sunAlt;   // sinks smoothly
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

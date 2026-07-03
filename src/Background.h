@@ -22,8 +22,9 @@ private:
     bool loadTexture(const char* path);
     void drawLayer(float offset, float v0, float v1, float y0, float y1) const;
     void drawFallback() const;
-    void drawSun() const;        // one sun on the right — never tiled; sinks with the cycle
-    void drawNightSky() const;   // blue night overlay + moon + twinkling stars
+    void drawSun() const;          // one sun on the right — never tiled; sinks with the cycle
+    void drawNightSky() const;     // blue night overlay + moon + twinkling stars
+    void drawWindowLights() const; // the house's windows glow at night, tracking the scroll
 
     unsigned int m_texId = 0;
     int   m_imgW = 0;
