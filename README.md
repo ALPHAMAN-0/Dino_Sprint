@@ -21,7 +21,7 @@ Always run from the repo root so the relative `assets/` path resolves.
 
 Open `Dino_Sprint.cbp` (repo root), pick the build target that matches your OS — **Debug/Release (Windows)** links `freeglut/opengl32/glu32/winmm/gdi32`, **Debug/Release (macOS)** links the system frameworks — then Build & Run. The working directory is the repo root so `assets/` loads. Build output goes to `bin/`, objects to `obj/` (both git-ignored). Don't regenerate the project from Code::Blocks' GLUT template; use this `.cbp`.
 
-Windows note: MinGW ships OpenGL 1.1-era headers, so any GL constant newer than 1.1 (e.g. `GL_CLAMP_TO_EDGE`) must be guarded with an `#ifndef`+`#define` — see the top of `src/Background.cpp`. This is a header gap, not a missing library; no extra installs are needed beyond Code::Blocks' bundled freeglut.
+Windows note: MinGW ships OpenGL 1.1-era headers, so any GL constant newer than 1.1 (e.g. `GL_CLAMP_TO_EDGE`) must be guarded with an `#ifndef`+`#define` — see the top of `src/Background.cpp`. This is a header gap, not a missing library; no extra installs are needed beyond Code::Blocks' bundled freeglut. The same 1.1 limit applies at runtime on machines without proper GPU drivers (Windows' software renderer): such contexts reject non-power-of-two textures, which OpenGL then samples as **solid white**. The loader therefore pads every image to power-of-two dimensions before upload — keep that pattern for any future textures.
 
 ## Background image
 

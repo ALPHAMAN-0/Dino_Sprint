@@ -24,6 +24,10 @@ private:
     unsigned int m_texId = 0;
     int   m_imgW = 0;
     int   m_imgH = 0;
+    int   m_texW = 1;             // allocated texture size (may be padded)
+    int   m_texH = 1;
+    float m_uMax = 1.0f;          // fraction of the padded texture the image fills
+    float m_vMax = 1.0f;
     bool  m_loaded = false;
     float m_tileW = 1000.0f;      // logical width of one image copy (true aspect)
     float m_scrollFar = 0.0f;     // wrapped into [0, 2*m_tileW)
