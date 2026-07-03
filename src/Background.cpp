@@ -1,5 +1,6 @@
 #include "Background.h"
 #include "Config.h"
+#include "GameState.h"
 
 #ifdef __APPLE__
 #include <GLUT/glut.h>
@@ -130,7 +131,12 @@ bool Background::loadTexture(const char* path) {
     return true;
 }
 
-void Background::update(float dt, float speedMultiplier) {
+void Background::update(float dt, const GameState& state) {
+    const float speedMultiplier = state.speedMultiplier();
+    m_sunAlt   = state.sunAltitude();
+    m_darkness = state.darkness();
+    m_skyTime += dt;
+
     const float period = 2.0f * m_tileW;   // one normal + one mirrored copy
     m_scrollFar  += cfg::BASE_SCROLL_SPEED * speedMultiplier * dt;
     m_scrollNear += cfg::BASE_SCROLL_SPEED * cfg::NEAR_LAYER_FACTOR * speedMultiplier * dt;
@@ -176,11 +182,15 @@ void Background::draw() const {
     if (!m_loaded) {
         drawFallback();
         drawSun();
+        drawNightSky();
         return;
     }
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, m_texId);
-    glColor3f(1.0f, 1.0f, 1.0f);   // no tint
+    // Multiplicative dimming as night falls; the blue shift comes from the
+    // overlay in drawNightSky().
+    const float tint = 1.0f - 0.55f * m_darkness;
+    glColor3f(tint, tint, tint);
 
     const float splitY = cfg::LOGICAL_H * cfg::FOREGROUND_SPLIT;
     // v-coords scale by m_vMax so only the real image is sampled, not the POT
@@ -200,16 +210,36 @@ void Background::draw() const {
 
     glDisable(GL_TEXTURE_2D);
     drawSun();
+    drawNightSky();
+}
+
+// Filled disc with the current glColor (GL 1.1-safe triangle fan).
+static void drawDisc(float cx, float cy, float r) {
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(cx, cy);
+    for (int i = 0; i <= 32; ++i) {
+        float a = (float)i * (2.0f * 3.14159265f / 32.0f);
+        glVertex2f(cx + r * std::cos(a), cy + r * std::sin(a));
+    }
+    glEnd();
 }
 
 // The sun is drawn in code, not baked into the image: anything inside the
 // tiled texture repeats with every (mirrored) copy — a baked sun shows up
-// twice whenever the screen spans a tile junction. Drawn as three blended
-// discs (soft glow, halo, core) at a fixed spot: infinitely far away, so it
-// neither scrolls nor tiles.
+// twice whenever the screen spans a tile junction. It sinks smoothly with
+// the day/night cycle and fades into the horizon haze as it sets (the tiled
+// texture is opaque, so it cannot pass behind the rocks; fading reads the
+// same at a glance and avoids overlap artifacts).
 void Background::drawSun() const {
-    const float cx = cfg::LOGICAL_W * 0.80f;   // upper right
-    const float cy = cfg::LOGICAL_H * 0.82f;
+    // Fade out over the last quarter of the descent; gone when fully set.
+    float fade = m_sunAlt / 0.25f;
+    if (fade > 1.0f) fade = 1.0f;
+    if (fade <= 0.0f) return;
+
+    const float cx = cfg::LOGICAL_W * 0.80f;                    // right side
+    const float horizonY = cfg::LOGICAL_H * cfg::FOREGROUND_SPLIT + 15.0f;
+    const float topY     = cfg::LOGICAL_H * 0.82f;
+    const float cy = horizonY + (topY - horizonY) * m_sunAlt;   // sinks smoothly
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -219,33 +249,73 @@ void Background::drawSun() const {
         { 36.0f, 1.00f, 0.96f, 0.86f, 1.00f },   // core disc
     };
     for (const auto& ring : rings) {
-        glColor4f(ring.cr, ring.cg, ring.cb, ring.ca);
-        glBegin(GL_TRIANGLE_FAN);
-        glVertex2f(cx, cy);
-        for (int i = 0; i <= 32; ++i) {
-            float a = (float)i * (2.0f * 3.14159265f / 32.0f);
-            glVertex2f(cx + ring.r * std::cos(a), cy + ring.r * std::sin(a));
-        }
-        glEnd();
+        glColor4f(ring.cr, ring.cg, ring.cb, ring.ca * fade);
+        drawDisc(cx, cy, ring.r);
     }
+    glDisable(GL_BLEND);
+}
+
+// Night pass, layered over the darkened scene: a deep-blue wash, then stars
+// and a rising moon. Everything scales with m_darkness so dusk and dawn
+// blend smoothly; a no-op in full daylight.
+void Background::drawNightSky() const {
+    if (m_darkness <= 0.01f) return;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Deep-blue wash shifts the warm desert palette toward night.
+    glColor4f(0.04f, 0.07f, 0.20f, 0.50f * m_darkness);
+    glBegin(GL_QUADS);
+        glVertex2f(0.0f, 0.0f);
+        glVertex2f(cfg::LOGICAL_W, 0.0f);
+        glVertex2f(cfg::LOGICAL_W, cfg::LOGICAL_H);
+        glVertex2f(0.0f, cfg::LOGICAL_H);
+    glEnd();
+
+    // Twinkling stars: fixed pseudo-random sky positions, alpha follows
+    // darkness so they fade in through dusk and out at dawn.
+    glBegin(GL_QUADS);
+    for (int i = 0; i < 40; ++i) {
+        float x = std::fmod((float)i * 137.508f, cfg::LOGICAL_W);
+        float y = 250.0f + std::fmod((float)i * 73.13f, 140.0f);
+        float twinkle = 0.65f + 0.35f * std::sin(m_skyTime * 1.8f + (float)i * 1.7f);
+        glColor4f(0.95f, 0.94f, 0.85f, m_darkness * twinkle);
+        float s = (i % 3 == 0) ? 1.8f : 1.2f;   // a few bigger stars
+        glVertex2f(x - s, y - s);
+        glVertex2f(x + s, y - s);
+        glVertex2f(x + s, y + s);
+        glVertex2f(x - s, y + s);
+    }
+    glEnd();
+
+    // Moon on the left (opposite the sun), rising as darkness deepens.
+    const float mx = cfg::LOGICAL_W * 0.22f;
+    const float my = 190.0f + 130.0f * m_darkness;
+    glColor4f(0.90f, 0.92f, 0.95f, 0.16f * m_darkness);
+    drawDisc(mx, my, 44.0f);                     // halo
+    glColor4f(0.92f, 0.93f, 0.88f, m_darkness);
+    drawDisc(mx, my, 26.0f);                     // disc
+
     glDisable(GL_BLEND);
 }
 
 void Background::drawFallback() const {
     const float splitY = cfg::LOGICAL_H * cfg::FOREGROUND_SPLIT;
+    const float t = 1.0f - 0.55f * m_darkness;   // same night dimming as the texture path
 
     // Dusk sky gradient.
     glBegin(GL_QUADS);
-        glColor3f(0.91f, 0.62f, 0.36f);   // warm horizon orange
+        glColor3f(0.91f * t, 0.62f * t, 0.36f * t);   // warm horizon orange
         glVertex2f(0.0f, splitY);
         glVertex2f(cfg::LOGICAL_W, splitY);
-        glColor3f(0.28f, 0.24f, 0.33f);   // dusty violet-blue top
+        glColor3f(0.28f * t, 0.24f * t, 0.33f * t);   // dusty violet-blue top
         glVertex2f(cfg::LOGICAL_W, cfg::LOGICAL_H);
         glVertex2f(0.0f, cfg::LOGICAL_H);
     glEnd();
 
     // Ground band.
-    glColor3f(0.24f, 0.15f, 0.10f);
+    glColor3f(0.24f * t, 0.15f * t, 0.10f * t);
     glBegin(GL_QUADS);
         glVertex2f(0.0f, 0.0f);
         glVertex2f(cfg::LOGICAL_W, 0.0f);
@@ -255,7 +325,7 @@ void Background::drawFallback() const {
 
     // Darker rocks drifting with the near-layer scroll so motion and the
     // +/- speed keys stay testable with no asset present.
-    glColor3f(0.13f, 0.08f, 0.06f);
+    glColor3f(0.13f * t, 0.08f * t, 0.06f * t);
     for (int i = 0; i < 5; ++i) {
         float x = std::fmod((float)i * 230.0f - m_scrollNear, cfg::LOGICAL_W);
         if (x < 0.0f) x += cfg::LOGICAL_W;

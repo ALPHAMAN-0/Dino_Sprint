@@ -80,7 +80,8 @@ static void onTimer(int /*value*/) {
     // the world doesn't teleport when it resumes.
     if (dt > cfg::MAX_DT) dt = cfg::MAX_DT;
 
-    gBackground.update(dt, gState.speedMultiplier());
+    gState.advanceTime(dt);   // day/night cycle first: everyone reads it this frame
+    gBackground.update(dt, gState);
     gBirds.update(dt, gState);
     gDino.update(dt, gState);
     gObstacle.update(dt, gState);

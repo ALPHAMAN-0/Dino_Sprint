@@ -1,6 +1,8 @@
 #ifndef BACKGROUND_H
 #define BACKGROUND_H
 
+class GameState;
+
 // Endless-scrolling desert background.
 //
 // The photo is drawn as an infinite strip of copies with every second copy
@@ -12,7 +14,7 @@
 class Background {
 public:
     void init();                                  // call AFTER glutCreateWindow (needs GL context)
-    void update(float dt, float speedMultiplier);
+    void update(float dt, const GameState& state);
     void draw() const;
     bool hasTexture() const { return m_loaded; }
 
@@ -20,7 +22,8 @@ private:
     bool loadTexture(const char* path);
     void drawLayer(float offset, float v0, float v1, float y0, float y1) const;
     void drawFallback() const;
-    void drawSun() const;   // one fixed sun, upper right — never tiled/scrolled
+    void drawSun() const;        // one sun on the right — never tiled; sinks with the cycle
+    void drawNightSky() const;   // blue night overlay + moon + twinkling stars
 
     unsigned int m_texId = 0;
     int   m_imgW = 0;
@@ -33,6 +36,9 @@ private:
     float m_tileW = 1000.0f;      // logical width of one image copy (true aspect)
     float m_scrollFar = 0.0f;     // wrapped into [0, 2*m_tileW)
     float m_scrollNear = 0.0f;
+    float m_sunAlt = 1.0f;        // cached from GameState each update
+    float m_darkness = 0.0f;
+    float m_skyTime = 0.0f;       // drives star twinkle
 };
 
 #endif // BACKGROUND_H

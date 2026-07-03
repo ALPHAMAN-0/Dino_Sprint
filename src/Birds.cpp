@@ -33,6 +33,9 @@ void Birds::respawn(Bird& b, float x) {
 }
 
 void Birds::update(float dt, GameState& state) {
+    // Birds roost at night: fade out with dusk, return with the sunrise.
+    m_visibility = 1.0f - state.darkness();
+
     // Half the far-layer scroll speed: birds read as deep sky, farther than
     // the rocks, while their own flight keeps them from moving in lockstep.
     const float drift = cfg::BASE_SCROLL_SPEED * 0.5f * state.speedMultiplier();
@@ -48,9 +51,13 @@ void Birds::update(float dt, GameState& state) {
 }
 
 void Birds::draw() const {
+    if (m_visibility < 0.02f) return;   // gone for the night
+
     // Dark silhouettes like the photo's painted birds. Wings are two thin
     // triangles whose tips swing with the flap phase (front-view V shape).
-    glColor3f(0.30f, 0.23f, 0.18f);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.30f, 0.23f, 0.18f, m_visibility);
     glBegin(GL_TRIANGLES);
     for (int i = 0; i < COUNT; ++i) {
         const Bird& b = m_birds[i];
@@ -66,4 +73,5 @@ void Birds::draw() const {
         glVertex2f(b.x + b.span, y + flap + 1.0f);
     }
     glEnd();
+    glDisable(GL_BLEND);
 }

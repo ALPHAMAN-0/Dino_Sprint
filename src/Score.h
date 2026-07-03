@@ -15,6 +15,7 @@ private:
     void drawText(float x, float y, const char* s) const;
 
     float m_elapsed = 0.0f;
+    float m_darkness = 0.0f;   // cached so the text flips to light-on-dark at night
 };
 
 #endif // SCORE_H

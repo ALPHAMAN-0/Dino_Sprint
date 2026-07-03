@@ -21,6 +21,14 @@ constexpr float SPEED_MIN  = 0.25f;
 constexpr float SPEED_MAX  = 3.0f;
 constexpr float SPEED_STEP = 0.25f;
 
+// Day/night cycle: the sun sinks smoothly for the whole day (visibly lower
+// every 10 s, fully set at 60 s), night brings moon + stars, then sunrise.
+constexpr float DAY_SECONDS     = 60.0f;
+constexpr float NIGHT_SECONDS   = 30.0f;
+constexpr float SUNRISE_SECONDS = 10.0f;
+constexpr float CYCLE_SECONDS   = DAY_SECONDS + NIGHT_SECONDS + SUNRISE_SECONDS;
+constexpr float DUSK_START_ALT  = 0.35f;   // darkness ramps in below this sun altitude
+
 } // namespace cfg
 
 #endif // CONFIG_H

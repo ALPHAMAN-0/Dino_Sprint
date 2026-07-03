@@ -27,6 +27,7 @@ private:
 
     static const int COUNT = 5;
     Bird m_birds[COUNT];
+    float m_visibility = 1.0f;   // 1 by day, fades to 0 as night falls
 
     void respawn(Bird& b, float x);
 };

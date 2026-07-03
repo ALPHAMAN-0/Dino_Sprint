@@ -16,6 +16,7 @@ void Score::init() {
 
 void Score::update(float dt, GameState& state) {
     if (state.isRunning()) m_elapsed += dt;
+    m_darkness = state.darkness();
 }
 
 void Score::drawText(float x, float y, const char* s) const {
@@ -39,8 +40,10 @@ void Score::draw() const {
     float x = cfg::LOGICAL_W * 0.5f - halfW;
     float y = cfg::LOGICAL_H - 28.0f;
 
-    glColor3f(0.98f, 0.92f, 0.80f);   // soft cream shadow for readability
+    // Dark text on the bright day sky, flipping to light text as night falls.
+    const float d = m_darkness;
+    glColor3f(0.98f - 0.88f * d, 0.92f - 0.82f * d, 0.80f - 0.62f * d);   // shadow
     drawText(x + 1.5f, y - 1.5f, buf);
-    glColor3f(0.25f, 0.16f, 0.10f);   // dark brown main text
+    glColor3f(0.25f + 0.70f * d, 0.16f + 0.76f * d, 0.10f + 0.70f * d);   // main
     drawText(x, y, buf);
 }
