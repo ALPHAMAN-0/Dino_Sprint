@@ -17,9 +17,11 @@ clang++ -std=c++17 -DGL_SILENCE_DEPRECATION -Ivendor src/*.cpp -o dino_sprint -f
 
 Always run from the repo root so the relative `assets/` path resolves.
 
-### Code::Blocks
+### Code::Blocks (macOS or Windows)
 
-Open `Dino_Sprint.cbp` (repo root) and hit Build & Run. The project references the same `src/` modules and links the macOS GLUT/OpenGL frameworks; its working directory is the repo root so `assets/` loads. Build output goes to `bin/`, objects to `obj/` (both git-ignored). Note: the Code::Blocks "GLUT project" template targets Windows (`opengl32`, MinGW paths) — don't regenerate the project from the template; use this `.cbp`.
+Open `Dino_Sprint.cbp` (repo root), pick the build target that matches your OS — **Debug/Release (Windows)** links `freeglut/opengl32/glu32/winmm/gdi32`, **Debug/Release (macOS)** links the system frameworks — then Build & Run. The working directory is the repo root so `assets/` loads. Build output goes to `bin/`, objects to `obj/` (both git-ignored). Don't regenerate the project from Code::Blocks' GLUT template; use this `.cbp`.
+
+Windows note: MinGW ships OpenGL 1.1-era headers, so any GL constant newer than 1.1 (e.g. `GL_CLAMP_TO_EDGE`) must be guarded with an `#ifndef`+`#define` — see the top of `src/Background.cpp`. This is a header gap, not a missing library; no extra installs are needed beyond Code::Blocks' bundled freeglut.
 
 ## Background image
 

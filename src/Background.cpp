@@ -7,6 +7,12 @@
 #include <GL/glut.h>
 #endif
 
+// Windows/MinGW ships OpenGL 1.1-era headers that lack this standard GL 1.2
+// constant; every real driver understands the value at runtime.
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+
 #include <cmath>
 #include <cstdio>
 
