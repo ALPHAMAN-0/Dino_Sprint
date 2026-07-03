@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="Dino_Sprint" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/Dino_Sprint" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="." />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/Dino_Sprint" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="." />
+				<Option object_output="obj/Release/" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-std=c++17" />
+			<Add option="-Wall" />
+			<Add option="-Wextra" />
+			<Add option="-DGL_SILENCE_DEPRECATION" />
+			<Add directory="vendor" />
+		</Compiler>
+		<Linker>
+			<Add option="-framework GLUT" />
+			<Add option="-framework OpenGL" />
+		</Linker>
+		<Unit filename="src/Config.h" />
+		<Unit filename="src/main.cpp" />
+		<Unit filename="src/GameState.h" />
+		<Unit filename="src/GameState.cpp" />
+		<Unit filename="src/InputManager.h" />
+		<Unit filename="src/InputManager.cpp" />
+		<Unit filename="src/Background.h" />
+		<Unit filename="src/Background.cpp" />
+		<Unit filename="src/Dino.h" />
+		<Unit filename="src/Dino.cpp" />
+		<Unit filename="src/Obstacle.h" />
+		<Unit filename="src/Obstacle.cpp" />
+		<Unit filename="src/PointsItem.h" />
+		<Unit filename="src/PointsItem.cpp" />
+		<Unit filename="src/Dragon.h" />
+		<Unit filename="src/Dragon.cpp" />
+		<Unit filename="src/Score.h" />
+		<Unit filename="src/Score.cpp" />
+		<Unit filename="vendor/stb_image.h" />
+		<Extensions>
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

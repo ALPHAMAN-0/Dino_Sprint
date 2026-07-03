@@ -1,0 +1,12 @@
+# build outputs
+src/*.o
+src/*.d
+/dino_sprint
+
+# Code::Blocks outputs and IDE state
+bin/
+obj/
+*.layout
+*.depend
+
+.DS_Store
