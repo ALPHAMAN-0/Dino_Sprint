@@ -3,13 +3,18 @@
 
 class GameState;
 
-// Distance/points HUD. draw() will use glRasterPos2f + glutBitmapCharacter
-// in logical coordinates once scoring exists.
+// HUD: run timer at the top of the screen (points display will join it
+// once PointsItem exists). Time accumulates only while the run is active.
 class Score {
 public:
     void init();
     void update(float dt, GameState& state);
     void draw() const;
+
+private:
+    void drawText(float x, float y, const char* s) const;
+
+    float m_elapsed = 0.0f;
 };
 
 #endif // SCORE_H

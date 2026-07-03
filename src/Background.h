@@ -20,6 +20,7 @@ private:
     bool loadTexture(const char* path);
     void drawLayer(float offset, float v0, float v1, float y0, float y1) const;
     void drawFallback() const;
+    void drawSun() const;   // one fixed sun, upper right — never tiled/scrolled
 
     unsigned int m_texId = 0;
     int   m_imgW = 0;

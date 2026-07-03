@@ -175,6 +175,7 @@ void Background::drawLayer(float offset, float v0, float v1, float y0, float y1)
 void Background::draw() const {
     if (!m_loaded) {
         drawFallback();
+        drawSun();
         return;
     }
     glEnable(GL_TEXTURE_2D);
@@ -198,6 +199,36 @@ void Background::draw() const {
     drawLayer(m_scrollNear, inset, vSplit - inset, 0.0f, splitY);
 
     glDisable(GL_TEXTURE_2D);
+    drawSun();
+}
+
+// The sun is drawn in code, not baked into the image: anything inside the
+// tiled texture repeats with every (mirrored) copy — a baked sun shows up
+// twice whenever the screen spans a tile junction. Drawn as three blended
+// discs (soft glow, halo, core) at a fixed spot: infinitely far away, so it
+// neither scrolls nor tiles.
+void Background::drawSun() const {
+    const float cx = cfg::LOGICAL_W * 0.80f;   // upper right
+    const float cy = cfg::LOGICAL_H * 0.82f;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    const struct { float r, cr, cg, cb, ca; } rings[3] = {
+        { 95.0f, 1.00f, 0.93f, 0.78f, 0.18f },   // outer glow
+        { 60.0f, 1.00f, 0.94f, 0.80f, 0.35f },   // halo
+        { 36.0f, 1.00f, 0.96f, 0.86f, 1.00f },   // core disc
+    };
+    for (const auto& ring : rings) {
+        glColor4f(ring.cr, ring.cg, ring.cb, ring.ca);
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(cx, cy);
+        for (int i = 0; i <= 32; ++i) {
+            float a = (float)i * (2.0f * 3.14159265f / 32.0f);
+            glVertex2f(cx + ring.r * std::cos(a), cy + ring.r * std::sin(a));
+        }
+        glEnd();
+    }
+    glDisable(GL_BLEND);
 }
 
 void Background::drawFallback() const {
