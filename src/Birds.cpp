@@ -34,7 +34,11 @@ void Birds::respawn(Bird& b, float x) {
 
 void Birds::update(float dt, GameState& state) {
     // Birds roost at night: fade out with dusk, return with the sunrise.
-    m_visibility = 1.0f - state.darkness();
+    // Under the jungle canopy no open sky is visible, so no birds at all —
+    // the same rationale as that theme's missing sun, moon, and stars.
+    m_visibility = (state.theme() == Theme::Jungle)
+                       ? 0.0f
+                       : 1.0f - state.darkness();
 
     // Half the far-layer scroll speed: birds read as deep sky, farther than
     // the rocks, while their own flight keeps them from moving in lockstep.

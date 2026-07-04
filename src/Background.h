@@ -25,6 +25,7 @@ private:
     void drawFallback() const;
     void drawSun() const;          // one sun on the right — never tiled; sinks with the cycle
     void drawNightSky() const;     // blue night overlay + moon + twinkling stars
+    void drawFireflies() const;    // jungle nights: blinking glows instead of stars
     void drawWindowLights() const; // the house's windows glow at night, tracking the scroll
 
     unsigned int m_texId = 0;

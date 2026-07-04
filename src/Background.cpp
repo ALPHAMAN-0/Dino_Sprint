@@ -215,8 +215,10 @@ void Background::draw() const {
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, m_texId);
     // Multiplicative dimming as night falls; the blue shift comes from the
-    // overlay in drawNightSky().
-    const float tint = 1.0f - 0.55f * m_darkness;
+    // overlay in drawNightSky(). The jungle dims less: its art is already
+    // dark, and the desert's full 0.55 would crush it to near-black.
+    const float dimDepth = (m_theme == Theme::Jungle) ? 0.30f : 0.55f;
+    const float tint = 1.0f - dimDepth * m_darkness;
     glColor3f(tint, tint, tint);
 
     const float splitY = cfg::LOGICAL_H * cfg::FOREGROUND_SPLIT;
@@ -357,8 +359,10 @@ void Background::drawNightSky() const {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Deep-blue wash shifts the warm desert palette toward night.
-    glColor4f(0.04f, 0.07f, 0.20f, 0.50f * m_darkness);
+    // Deep-blue wash shifts the palette toward night; lighter on the jungle,
+    // whose teal art needs less of a push (and stays playable when dark).
+    const float washA = (m_theme == Theme::Jungle) ? 0.35f : 0.50f;
+    glColor4f(0.04f, 0.07f, 0.20f, washA * m_darkness);
     glBegin(GL_QUADS);
         glVertex2f(0.0f, 0.0f);
         glVertex2f(cfg::LOGICAL_W, 0.0f);
@@ -366,9 +370,10 @@ void Background::drawNightSky() const {
         glVertex2f(0.0f, cfg::LOGICAL_H);
     glEnd();
 
-    // Jungle nights are canopy-dark: the blue wash above is the whole effect —
-    // no stars, no moon (the sky is not visible through the trees).
+    // Jungle nights are canopy-dark: no stars, no moon (the sky is not
+    // visible through the trees). Fireflies are the night signature instead.
     if (m_theme == Theme::Jungle) {
+        drawFireflies();
         glDisable(GL_BLEND);
         return;
     }
@@ -400,10 +405,32 @@ void Background::drawNightSky() const {
     glDisable(GL_BLEND);
 }
 
+// Fireflies: the jungle's night signature, standing in for the desert's
+// stars and window lights. Anchors use the same golden-angle spread as the
+// stars; each firefly wanders slowly around its anchor and blinks on its own
+// rhythm. Screen-space ambience like the stars — it does not scroll.
+// Caller has GL_BLEND enabled (invoked from inside drawNightSky's pass).
+void Background::drawFireflies() const {
+    for (int i = 0; i < 14; ++i) {
+        const float fi = (float)i;
+        float ax = std::fmod(fi * 137.508f + 60.0f, cfg::LOGICAL_W);
+        float ay = 50.0f + std::fmod(fi * 91.7f, 180.0f);
+        float x = ax + 18.0f * std::sin(m_skyTime * 0.6f + fi * 2.1f);
+        float y = ay + 10.0f * std::sin(m_skyTime * 0.9f + fi * 1.3f);
+        float pulse = 0.5f + 0.5f * std::sin(m_skyTime * 2.2f + fi * 2.7f);
+        pulse *= pulse;   // blinky: short bright flashes, long dim glides
+        glColor4f(0.62f, 0.90f, 0.30f, 0.10f * m_darkness * pulse);
+        drawDisc(x, y, 7.0f);                     // soft green halo
+        glColor4f(0.80f, 1.00f, 0.45f, 0.85f * m_darkness * pulse);
+        drawDisc(x, y, 1.8f);                     // bright core
+    }
+}
+
 void Background::drawFallback() const {
     const float splitY = cfg::LOGICAL_H * cfg::FOREGROUND_SPLIT;
-    const float t = 1.0f - 0.55f * m_darkness;   // same night dimming as the texture path
     const bool jungle = (m_theme == Theme::Jungle);
+    // Same night dimming as the texture path (jungle dims less).
+    const float t = 1.0f - (jungle ? 0.30f : 0.55f) * m_darkness;
 
     // Sky gradient: warm dusk for desert, misty teal for jungle.
     glBegin(GL_QUADS);
@@ -431,7 +458,8 @@ void Background::drawFallback() const {
 
     // Darker rocks drifting with the near-layer scroll so motion and the
     // +/- speed keys stay testable with no asset present.
-    glColor3f(0.13f * t, 0.08f * t, 0.06f * t);
+    if (jungle) glColor3f(0.06f * t, 0.11f * t, 0.05f * t);   // dark undergrowth
+    else        glColor3f(0.13f * t, 0.08f * t, 0.06f * t);
     for (int i = 0; i < 5; ++i) {
         float x = std::fmod((float)i * 230.0f - m_scrollNear, cfg::LOGICAL_W);
         if (x < 0.0f) x += cfg::LOGICAL_W;

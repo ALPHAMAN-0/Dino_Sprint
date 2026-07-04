@@ -33,6 +33,7 @@ void Obstacle::respawn(Rock& r, float x) {
 
 void Obstacle::update(float dt, GameState& state) {
     m_darkness = state.darkness();
+    m_theme    = state.theme();
 
     // Ground speed: same plane as the near road strip.
     const float speed = cfg::BASE_SCROLL_SPEED * cfg::NEAR_LAYER_FACTOR
@@ -50,9 +51,11 @@ void Obstacle::update(float dt, GameState& state) {
 }
 
 void Obstacle::draw() const {
-    // Dark silhouettes like the foreground rocks, dimmed a little at night.
+    // Dark silhouettes dimmed a little at night; the palette follows the
+    // world — desert rock brown vs. the jungle's dark green grass tufts.
     const float t = 1.0f - 0.35f * m_darkness;
-    glColor3f(0.20f * t, 0.12f * t, 0.08f * t);
+    if (m_theme == Theme::Jungle) glColor3f(0.07f * t, 0.13f * t, 0.06f * t);
+    else                          glColor3f(0.20f * t, 0.12f * t, 0.08f * t);
     glBegin(GL_TRIANGLES);
     for (int i = 0; i < COUNT; ++i) {
         const Rock& r = m_rocks[i];

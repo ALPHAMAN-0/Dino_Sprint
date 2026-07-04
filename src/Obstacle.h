@@ -1,7 +1,7 @@
 #ifndef OBSTACLE_H
 #define OBSTACLE_H
 
-class GameState;
+#include "GameState.h"   // Theme
 
 // Ground obstacles: dark rock spikes standing on the road strip, scrolling
 // toward the dino at ground speed (near-layer speed x the game multiplier).
@@ -24,6 +24,7 @@ private:
     static const int COUNT = 3;
     Rock  m_rocks[COUNT];
     float m_darkness = 0.0f;
+    Theme m_theme = Theme::Desert;   // silhouette palette follows the world
 
     void respawn(Rock& r, float x);
 };
