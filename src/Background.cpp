@@ -1,6 +1,7 @@
 #include "Background.h"
 #include "Config.h"
 #include "GameState.h"
+#include "Texture.h"
 
 #ifdef __APPLE__
 #include <GLUT/glut.h>
@@ -8,29 +9,13 @@
 #include <GL/glut.h>
 #endif
 
-// Windows/MinGW ships OpenGL 1.1-era headers that lack this standard GL 1.2
-// constant; every real driver understands the value at runtime.
-#ifndef GL_CLAMP_TO_EDGE
-#define GL_CLAMP_TO_EDGE 0x812F
-#endif
-
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
-#include <cstring>
-
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_ONLY_PNG
-#define STBI_ONLY_JPEG
-#include "stb_image.h"
 
 void Background::init() {
-    // stb returns the top row first; GL's v=0 is the bottom. Flipping at load
-    // makes v=0 the photo's bottom, so the dark foreground strip is exactly
-    // v in [0, FOREGROUND_SPLIT] — all v-coordinate math below relies on this.
-    stbi_set_flip_vertically_on_load(1);
-    // The actual texture is loaded by loadTheme() once the player picks a
-    // world on the start menu.
+    // Nothing to preload: the texture is loaded by loadTheme() once the
+    // player picks a world on the start menu (see Texture.cpp for the
+    // POT-padded, GL 1.1-safe upload path).
 }
 
 void Background::loadTheme(Theme t) {
@@ -43,30 +28,16 @@ void Background::loadTheme(Theme t) {
     }
     m_loaded = false;
 
-    static const char* desertPaths[] = {
-        "assets/background_desert.png",
-        "assets/background.png",          // legacy name, still accepted
-        "assets/background.jpg",
-        "assets/background.jpeg",
-    };
-    static const char* junglePaths[] = {
-        "assets/background_jungle.png",
-        "assets/background_jungle.jpg",
-        "assets/background_jungle.jpeg",
-    };
-    const char* const* candidates = (t == Theme::Jungle) ? junglePaths : desertPaths;
-    const int count = (t == Theme::Jungle) ? 3 : 4;
-
-    for (int i = 0; i < count; ++i) {
-        if (loadTexture(candidates[i])) {
-            std::printf("[Dino Sprint] background loaded: %s (%dx%d)\n",
-                        candidates[i], m_imgW, m_imgH);
-            std::fflush(stdout);
-            break;
-        }
-    }
-
-    if (m_loaded) {
+    Texture2D tex = loadThemeTexture(t);
+    if (tex.ok) {
+        m_texId = tex.id;
+        m_imgW  = tex.imgW;
+        m_imgH  = tex.imgH;
+        m_texW  = tex.texW;
+        m_texH  = tex.texH;
+        m_uMax  = tex.uMax;
+        m_vMax  = tex.vMax;
+        m_loaded = true;
         // One copy spans the full logical height at the image's true aspect,
         // so the art is never stretched even if the photo is not exactly 2.5:1.
         m_tileW = cfg::LOGICAL_H * (float)m_imgW / (float)m_imgH;
@@ -76,87 +47,13 @@ void Background::loadTheme(Theme t) {
             "[Dino Sprint] WARNING: could not load %s.\n"
             "[Dino Sprint] Put the image in <repo>/assets/ and run from the repo root.\n"
             "[Dino Sprint] Running with procedural fallback background.\n",
-            candidates[0]);
+            (t == Theme::Jungle) ? "assets/background_jungle.png"
+                                 : "assets/background_desert.png");
     }
 
     // Fresh scroll for the new world.
     m_scrollFar = 0.0f;
     m_scrollNear = 0.0f;
-}
-
-static int nextPow2(int v) {
-    int p = 1;
-    while (p < v) p <<= 1;
-    return p;
-}
-
-bool Background::loadTexture(const char* path) {
-    int w = 0, h = 0, n = 0;
-    // Force RGBA so PNG and JPEG upload identically with 4-byte row alignment.
-    unsigned char* pixels = stbi_load(path, &w, &h, &n, 4);
-    if (!pixels) return false;
-
-    // Pad to power-of-two dimensions: OpenGL 1.1-era renderers (Windows'
-    // software fallback, old drivers) reject NPOT textures, which then sample
-    // as solid white. The padding extends the image's edge pixels so bilinear
-    // filtering at u=m_uMax / v=m_vMax never blends in garbage.
-    int texW = nextPow2(w);
-    int texH = nextPow2(h);
-    unsigned char* upload = pixels;
-    if (texW != w || texH != h) {
-        upload = (unsigned char*)std::malloc((size_t)texW * (size_t)texH * 4);
-        if (!upload) {
-            stbi_image_free(pixels);
-            return false;
-        }
-        for (int y = 0; y < texH; ++y) {
-            const unsigned char* src = pixels + (size_t)(y < h ? y : h - 1) * w * 4;
-            unsigned char* dst = upload + (size_t)y * texW * 4;
-            std::memcpy(dst, src, (size_t)w * 4);
-            for (int x = w; x < texW; ++x)
-                std::memcpy(dst + (size_t)x * 4, src + (size_t)(w - 1) * 4, 4);
-        }
-    }
-
-    glGenTextures(1, &m_texId);
-    glBindTexture(GL_TEXTURE_2D, m_texId);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    // MIN filter must be set: the GL default expects mipmaps and samples an
-    // incomplete texture (renders white) without them.
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // GL_CLAMP first (valid since GL 1.0) as the fallback wrap mode, then
-    // upgrade to CLAMP_TO_EDGE where the runtime accepts it (GL 1.2+). The
-    // tiling math keeps all coords inside [0, uMax], so wrap mode only ever
-    // matters for bilinear filtering at the exact edges.
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    while (glGetError() != GL_NO_ERROR) {}   // drain (GL 1.1 rejects CLAMP_TO_EDGE)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_RGBA, GL_UNSIGNED_BYTE, upload);
-    bool uploadOk = (glGetError() == GL_NO_ERROR);
-
-    if (upload != pixels) std::free(upload);
-    stbi_image_free(pixels);
-
-    if (!uploadOk) {
-        // Never leave a silently-white texture: report and use the fallback.
-        glDeleteTextures(1, &m_texId);
-        m_texId = 0;
-        std::fprintf(stderr,
-            "[Dino Sprint] WARNING: the OpenGL driver rejected the %dx%d texture upload.\n", texW, texH);
-        return false;
-    }
-
-    m_imgW = w;
-    m_imgH = h;
-    m_texW = texW;
-    m_texH = texH;
-    m_uMax = (float)w / (float)texW;
-    m_vMax = (float)h / (float)texH;
-    m_loaded = true;
-    return true;
 }
 
 void Background::update(float dt, const GameState& state) {

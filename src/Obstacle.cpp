@@ -25,9 +25,16 @@ void Obstacle::init() {
 }
 
 void Obstacle::respawn(Rock& r, float x) {
-    r.x    = x;
-    r.w    = obFrand(26.0f, 44.0f);
-    r.h    = obFrand(38.0f, 68.0f);
+    r.x       = x;
+    r.boulder = (std::rand() % 5) < 2;   // ~40% boulders, both maps
+    if (r.boulder) {
+        // Boulders are squat and wide; spikes are tall and thin.
+        r.w = obFrand(44.0f, 72.0f);
+        r.h = obFrand(26.0f, 42.0f);
+    } else {
+        r.w = obFrand(26.0f, 44.0f);
+        r.h = obFrand(38.0f, 68.0f);
+    }
     r.twin = (std::rand() & 1) != 0;
 }
 
@@ -50,16 +57,61 @@ void Obstacle::update(float dt, GameState& state) {
     }
 }
 
+// A squat low-poly rock: body fan, then a lit facet along the top-left so it
+// reads as a solid boulder rather than a silhouette. The facet is sandy in
+// the desert and mossy green in the jungle, echoing each map's art.
+void Obstacle::drawBoulder(const Rock& r, float t) const {
+    const float x = r.x, y0 = cfg::GROUND_Y, w = r.w, h = r.h;
+    const bool jungle = (m_theme == Theme::Jungle);
+
+    if (jungle) glColor3f(0.22f * t, 0.29f * t, 0.24f * t);   // grey-green stone
+    else        glColor3f(0.38f * t, 0.27f * t, 0.18f * t);   // sandy brown stone
+    glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(x + 0.50f * w, y0 + 0.45f * h);            // center
+        glVertex2f(x, y0);
+        glVertex2f(x + 0.08f * w, y0 + 0.55f * h);
+        glVertex2f(x + 0.35f * w, y0 + h);
+        glVertex2f(x + 0.68f * w, y0 + 0.92f * h);
+        glVertex2f(x + 0.95f * w, y0 + 0.50f * h);
+        glVertex2f(x + w, y0);
+        glVertex2f(x, y0);
+    glEnd();
+
+    // Lit cap: desert sun-side facet / jungle moss growing over the top.
+    if (jungle) glColor3f(0.38f * t, 0.55f * t, 0.22f * t);
+    else        glColor3f(0.52f * t, 0.40f * t, 0.28f * t);
+    glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(x + 0.38f * w, y0 + 0.78f * h);
+        glVertex2f(x + 0.08f * w, y0 + 0.55f * h);
+        glVertex2f(x + 0.35f * w, y0 + h);
+        glVertex2f(x + 0.68f * w, y0 + 0.92f * h);
+    glEnd();
+
+    // Grounding shadow along the base.
+    if (jungle) glColor3f(0.10f * t, 0.15f * t, 0.12f * t);
+    else        glColor3f(0.22f * t, 0.14f * t, 0.09f * t);
+    glBegin(GL_QUADS);
+        glVertex2f(x, y0);
+        glVertex2f(x + w, y0);
+        glVertex2f(x + 0.88f * w, y0 + 0.14f * h);
+        glVertex2f(x + 0.10f * w, y0 + 0.14f * h);
+    glEnd();
+}
+
 void Obstacle::draw() const {
-    // Dark silhouettes dimmed a little at night; the palette follows the
-    // world — desert rock brown vs. the jungle's dark green grass tufts.
+    // Dimmed a little at night; the palette follows the world — desert rock
+    // brown vs. the jungle's dark green grass tufts, and boulders on both.
     const float t = 1.0f - 0.35f * m_darkness;
-    if (m_theme == Theme::Jungle) glColor3f(0.07f * t, 0.13f * t, 0.06f * t);
-    else                          glColor3f(0.20f * t, 0.12f * t, 0.08f * t);
-    glBegin(GL_TRIANGLES);
     for (int i = 0; i < COUNT; ++i) {
         const Rock& r = m_rocks[i];
         const float y0 = cfg::GROUND_Y;
+        if (r.boulder) {
+            drawBoulder(r, t);
+            continue;
+        }
+        if (m_theme == Theme::Jungle) glColor3f(0.07f * t, 0.13f * t, 0.06f * t);
+        else                          glColor3f(0.20f * t, 0.12f * t, 0.08f * t);
+        glBegin(GL_TRIANGLES);
         if (r.twin) {
             // two spikes sharing the base
             glVertex2f(r.x, y0);
@@ -73,6 +125,6 @@ void Obstacle::draw() const {
             glVertex2f(r.x + r.w, y0);
             glVertex2f(r.x + 0.5f * r.w, y0 + r.h);
         }
+        glEnd();
     }
-    glEnd();
 }

@@ -89,6 +89,10 @@
 		<Unit filename="src/Birds.cpp" />
 		<Unit filename="src/Dino.h" />
 		<Unit filename="src/Dino.cpp" />
+		<Unit filename="src/Menu.h" />
+		<Unit filename="src/Menu.cpp" />
+		<Unit filename="src/Texture.h" />
+		<Unit filename="src/Texture.cpp" />
 		<Unit filename="src/Obstacle.h" />
 		<Unit filename="src/Obstacle.cpp" />
 		<Unit filename="src/PointsItem.h" />

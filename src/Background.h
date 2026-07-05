@@ -20,7 +20,6 @@ public:
     bool hasTexture() const { return m_loaded; }
 
 private:
-    bool loadTexture(const char* path);
     void drawLayer(float offset, float v0, float v1, float y0, float y1) const;
     void drawFallback() const;
     void drawSun() const;          // one sun on the right — never tiled; sinks with the cycle

@@ -15,11 +15,14 @@ public:
 
 private:
     struct Rock {
-        float x = 0.0f;      // left edge
+        float x = 0.0f;         // left edge
         float w = 30.0f;
         float h = 50.0f;
-        bool  twin = false;  // single spike or a double one
+        bool  twin = false;     // single spike or a double one
+        bool  boulder = false;  // faceted rock instead of spikes
     };
+
+    void drawBoulder(const Rock& r, float t) const;
 
     static const int COUNT = 3;
     Rock  m_rocks[COUNT];

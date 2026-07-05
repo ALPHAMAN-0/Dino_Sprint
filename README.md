@@ -34,12 +34,18 @@ Each world loads its own image from `assets/`:
 
 ## Controls
 
+On the start screen each world is shown as a picture card — click one, or move the highlight with `LEFT`/`RIGHT` and press `ENTER` (the direct `1` / `2` keys still work).
+
 | Key | Action |
 |---|---|
 | `+` / `=` | Increase scroll speed (test key) |
 | `-` / `_` | Decrease scroll speed (test key) |
+| `B` | Back to the world-select menu |
+| `P` | Save a screenshot to `dino_screenshot.bmp` (debug) |
 | `ESC` | Quit |
+
+Dev tip: `./dino_sprint --shot out.bmp [menu|desert|jungle] [secs]` renders that state (fast-forwarded `secs` simulated seconds), saves a screenshot, and exits — handy for checking visuals from scripts. Exits non-zero if the file can't be written.
 
 ## Project structure
 
-Every game element is its own module in `src/` — `Background` (endless scroll; desert nights bring moon, stars, and glowing house windows, jungle nights bring blinking fireflies under the canopy), `Birds` (animated silhouettes that roost at night; desert skies only — no open sky under the jungle canopy), `Obstacle` (spikes scrolling on the ground, rock-brown in the desert, dark green tufts in the jungle), `Score` (timer HUD + 3 hearts for lives), plus wired stubs ready to fill in: `Dino`, `PointsItem`, `Dragon`, `InputManager`. `GameState` owns the speed multiplier, lives, and the day/night cycle: the sun sinks for 60 s, night with moon and stars lasts 30 s, then a 10 s sunrise loops back to day. Shared tuning constants live in `src/Config.h`; `vendor/stb_image.h` is the single-header image loader (public domain, no library install).
+Every game element is its own module in `src/` — `Background` (endless scroll; desert nights bring moon, stars, and glowing house windows, jungle nights bring blinking fireflies under the canopy), `Birds` (animated silhouettes that roost at night; desert skies only — no open sky under the jungle canopy), `Obstacle` (a mix of spikes and faceted boulders scrolling on the ground — sandy brown in the desert, mossy green in the jungle), `Score` (timer HUD + 3 hearts for lives), `Menu` (world-select screen with a live preview card per theme), `Texture` (shared GL 1.1-safe image loading), plus wired stubs ready to fill in: `Dino`, `PointsItem`, `Dragon`, `InputManager`. `GameState` owns the speed multiplier, lives, and the day/night cycle: the sun sinks for 60 s, night with moon and stars lasts 30 s, then a 10 s sunrise loops back to day. Shared tuning constants live in `src/Config.h`; `vendor/stb_image.h` is the single-header image loader (public domain, no library install).

@@ -3,6 +3,9 @@ src/*.o
 src/*.d
 /dino_sprint
 
+# debug screenshots (P key)
+/dino_screenshot.bmp
+
 # Code::Blocks outputs and IDE state
 bin/
 obj/
