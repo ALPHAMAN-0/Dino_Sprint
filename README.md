@@ -12,25 +12,18 @@ make run
 Or as a single command without make:
 
 ```sh
-clang++ -std=c++17 -DGL_SILENCE_DEPRECATION -Ivendor src/*.cpp -o dino_sprint -framework GLUT -framework OpenGL && ./dino_sprint
+clang++ -std=c++17 -DGL_SILENCE_DEPRECATION src/*.cpp -o dino_sprint -framework GLUT -framework OpenGL && ./dino_sprint
 ```
-
-Always run from the repo root so the relative `assets/` path resolves.
 
 ### Code::Blocks (macOS or Windows)
 
-Open `Dino_Sprint.cbp` (repo root), pick the build target that matches your OS — **Debug/Release (Windows)** links `freeglut/opengl32/glu32/winmm/gdi32`, **Debug/Release (macOS)** links the system frameworks — then Build & Run. The working directory is the repo root so `assets/` loads. Build output goes to `bin/`, objects to `obj/` (both git-ignored). Don't regenerate the project from Code::Blocks' GLUT template; use this `.cbp`.
+Open `Dino_Sprint.cbp` (repo root), pick the build target that matches your OS — **Debug/Release (Windows)** links `freeglut/opengl32/glu32/winmm/gdi32`, **Debug/Release (macOS)** links the system frameworks — then Build & Run. Build output goes to `bin/`, objects to `obj/` (both git-ignored). Don't regenerate the project from Code::Blocks' GLUT template; use this `.cbp`.
 
-Windows note: MinGW ships OpenGL 1.1-era headers, so any GL constant newer than 1.1 (e.g. `GL_CLAMP_TO_EDGE`) must be guarded with an `#ifndef`+`#define` — see the top of `src/Background.cpp`. This is a header gap, not a missing library; no extra installs are needed beyond Code::Blocks' bundled freeglut. The same 1.1 limit applies at runtime on machines without proper GPU drivers (Windows' software renderer): such contexts reject non-power-of-two textures, which OpenGL then samples as **solid white**. The loader therefore pads every image to power-of-two dimensions before upload — keep that pattern for any future textures.
+Windows note: MinGW ships OpenGL 1.1-era headers, and machines without proper GPU drivers fall back to a GL 1.1 software renderer at runtime. All drawing therefore sticks to GL 1.1 primitives; if you ever use a GL constant newer than 1.1, guard it with `#ifndef`+`#define` (this is a header gap, not a missing library — no extra installs are needed beyond Code::Blocks' bundled freeglut).
 
-## Background images
+## Backgrounds — 100% code-drawn
 
-Each world loads its own image from `assets/`:
-
-- **Desert** — `assets/background_desert.png` (a generated placeholder currently ships under the legacy name `assets/background.png`, which is still accepted)
-- **Jungle** — `assets/background_jungle.png`
-
-`.jpg`/`.jpeg` work too. Keep images **at most 1024 px wide**: the loader pads to power-of-two sizes, and Windows' GL 1.1 software renderer rejects textures larger than 1024×1024 (on macOS, downscale with `sips --resampleWidth 1000 <file>`). Images are drawn at their true aspect ratio and scroll endlessly with seamless mirror tiling and two parallax layers (the bottom 20% strip moves 1.5× faster). If a file is missing, that theme runs with a procedural fallback and prints a warning.
+Both worlds are drawn entirely with OpenGL primitives (quads, triangles, fans) — **no image files are loaded at all**. `src/DesertScene.cpp` and `src/JungleScene.cpp` paint the scenery; `src/Background.cpp` owns the two parallax scroll offsets (the bottom strip moves 1.5× faster), the day/night dimming, and the sun/moon/stars/fireflies overlays. The scenery repeats every 2000 logical units (two screens of unique content) with all element patterns tiled to that period, so the endless scroll never shows a seam. Element shapes come from an integer hash of their index — deterministic, so the world looks identical every run with no stored state. The `assets/` and `vendor/` folders are no longer used by the game and can be deleted.
 
 ## Controls
 
@@ -48,4 +41,4 @@ Dev tip: `./dino_sprint --shot out.bmp [menu|desert|jungle] [secs]` renders that
 
 ## Project structure
 
-Every game element is its own module in `src/` — `Background` (endless scroll; desert nights bring moon, stars, and glowing house windows, jungle nights bring blinking fireflies under the canopy), `Birds` (animated silhouettes that roost at night; desert skies only — no open sky under the jungle canopy), `Obstacle` (a mix of spikes and faceted boulders scrolling on the ground — sandy brown in the desert, mossy green in the jungle), `Score` (timer HUD + 3 hearts for lives), `Menu` (world-select screen with a live preview card per theme), `Texture` (shared GL 1.1-safe image loading), plus wired stubs ready to fill in: `Dino`, `PointsItem`, `Dragon`, `InputManager`. `GameState` owns the speed multiplier, lives, and the day/night cycle: the sun sinks for 60 s, night with moon and stars lasts 30 s, then a 10 s sunrise loops back to day. Shared tuning constants live in `src/Config.h`; `vendor/stb_image.h` is the single-header image loader (public domain, no library install).
+Every game element is its own module in `src/` — `Background` (parallax scroll, day/night dimming, sun/moon/stars/fireflies; desert nights bring glowing house windows, jungle nights blinking fireflies), `DesertScene` / `JungleScene` (the procedural scenery painters), `Birds` (animated silhouettes that roost at night; desert skies only — no open sky under the jungle canopy), `Obstacle` (a mix of spikes and faceted boulders scrolling on the ground — sandy brown in the desert, mossy green in the jungle), `Score` (timer HUD + 3 hearts for lives), `Menu` (world-select screen with live animated preview cards), plus wired stubs ready to fill in: `Dino`, `PointsItem`, `Dragon`, `InputManager`. Shared tuning constants live in `src/Config.h`; `src/SceneUtil.h` has the hash helpers the scenes use for deterministic variety. `GameState` owns the speed multiplier, lives, and the day/night cycle: the sun sinks for 60 s, night with moon and stars lasts 30 s, then a 10 s sunrise loops back to day.

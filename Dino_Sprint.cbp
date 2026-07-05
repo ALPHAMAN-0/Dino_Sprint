@@ -75,7 +75,6 @@
 			<Add option="-Wall" />
 			<Add option="-Wextra" />
 			<Add option="-DGL_SILENCE_DEPRECATION" />
-			<Add directory="vendor" />
 		</Compiler>
 		<Unit filename="src/Config.h" />
 		<Unit filename="src/main.cpp" />
@@ -91,8 +90,11 @@
 		<Unit filename="src/Dino.cpp" />
 		<Unit filename="src/Menu.h" />
 		<Unit filename="src/Menu.cpp" />
-		<Unit filename="src/Texture.h" />
-		<Unit filename="src/Texture.cpp" />
+		<Unit filename="src/SceneUtil.h" />
+		<Unit filename="src/DesertScene.h" />
+		<Unit filename="src/DesertScene.cpp" />
+		<Unit filename="src/JungleScene.h" />
+		<Unit filename="src/JungleScene.cpp" />
 		<Unit filename="src/Obstacle.h" />
 		<Unit filename="src/Obstacle.cpp" />
 		<Unit filename="src/PointsItem.h" />
@@ -101,7 +103,6 @@
 		<Unit filename="src/Dragon.cpp" />
 		<Unit filename="src/Score.h" />
 		<Unit filename="src/Score.cpp" />
-		<Unit filename="vendor/stb_image.h" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>

@@ -191,12 +191,12 @@ static void onTimer(int /*value*/) {
     glutTimerFunc(cfg::FRAME_MS, onTimer, 0);   // one-shot timer: must re-register
 }
 
-// Menu selection: (re)load the chosen world's texture and reset the run.
+// Menu selection: switch to the chosen world and reset the run.
 static void startGame(Theme theme) {
     gState.init();               // fresh speed, lives, day/night clock
     gState.setTheme(theme);
     gState.setMode(Mode::Playing);
-    gBackground.loadTheme(theme);
+    gBackground.setTheme(theme);
     gBirds.init();
     gObstacle.init();
     gScore.init();
@@ -304,8 +304,8 @@ int main(int argc, char** argv) {
 
     gState.init();
     gInput.init();
-    gBackground.init();   // texture upload — must come after glutCreateWindow
-    gMenu.init();         // loads both world previews; also needs the GL context
+    gBackground.init();
+    gMenu.init();
     gBirds.init();
     gDino.init();
     gObstacle.init();

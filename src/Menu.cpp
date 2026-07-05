@@ -29,10 +29,7 @@ static void centeredText(float cx, float y, const char* s, void* font) {
 }
 
 void Menu::init() {
-    // The previews live for the whole session; Background loads its own copy
-    // on game start (it frees per theme switch, the menu must keep both).
-    m_tex[0] = loadThemeTexture(Theme::Desert);
-    m_tex[1] = loadThemeTexture(Theme::Jungle);
+    // Nothing to load: the preview cards draw the procedural scenes live.
 }
 
 void Menu::update(float dt) {
@@ -80,46 +77,32 @@ void Menu::drawCard(int idx) const {
         glVertex2f(x - 2.0f, y + kCardH + 2.0f);
     glEnd();
 
-    const Texture2D& tex = m_tex[idx];
-    if (tex.ok) {
-        // Center-crop the image to the card's aspect so nothing stretches.
-        const float cardAspect = kCardW / kCardH;
-        const float imgAspect  = (float)tex.imgW / (float)tex.imgH;
-        float u0 = 0.0f, u1 = tex.uMax, v0 = 0.0f, v1 = tex.vMax;
-        if (imgAspect > cardAspect) {          // image wider: crop the sides
-            const float f = cardAspect / imgAspect;
-            u0 = tex.uMax * 0.5f * (1.0f - f);
-            u1 = tex.uMax * 0.5f * (1.0f + f);
-        } else if (imgAspect < cardAspect) {   // image taller: crop top/bottom
-            const float f = imgAspect / cardAspect;
-            v0 = tex.vMax * 0.5f * (1.0f - f);
-            v1 = tex.vMax * 0.5f * (1.0f + f);
-        }
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, tex.id);
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glBegin(GL_QUADS);
-            glTexCoord2f(u0, v0); glVertex2f(x, y);
-            glTexCoord2f(u1, v0); glVertex2f(x + kCardW, y);
-            glTexCoord2f(u1, v1); glVertex2f(x + kCardW, y + kCardH);
-            glTexCoord2f(u0, v1); glVertex2f(x, y + kCardH);
-        glEnd();
-        glDisable(GL_TEXTURE_2D);
+    // Live miniature of the real scenery, slowly panning. The scene paints
+    // the full 1000x400 logical space, so it is scaled into the card (both
+    // are 2.5:1 — no distortion) and clipped with scissor so the shapes that
+    // poke past the logical edges never spill outside the frame. Scissor
+    // works in window pixels: map the card rect through the viewport.
+    GLint vp[4];
+    glGetIntegerv(GL_VIEWPORT, vp);
+    const GLint sx = vp[0] + (GLint)(x / cfg::LOGICAL_W * (float)vp[2]);
+    const GLint sy = vp[1] + (GLint)(y / cfg::LOGICAL_H * (float)vp[3]);
+    const GLsizei sw = (GLsizei)(kCardW / cfg::LOGICAL_W * (float)vp[2]) + 1;
+    const GLsizei sh = (GLsizei)(kCardH / cfg::LOGICAL_H * (float)vp[3]) + 1;
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(sx, sy, sw, sh);
+    glPushMatrix();
+    glTranslatef(x, y, 0.0f);
+    glScalef(kCardW / cfg::LOGICAL_W, kCardH / cfg::LOGICAL_H, 1.0f);
+    const float pan = m_time * 40.0f;   // gentle live scroll, full daylight
+    if (idx == 1) {
+        m_jungle.drawFar(pan, 1.0f);
+        m_jungle.drawNear(pan * cfg::NEAR_LAYER_FACTOR, 1.0f);
     } else {
-        // No image on disk: a theme-colored gradient stands in, same idea as
-        // the in-game procedural fallback.
-        const bool jungle = (idx == 1);
-        glBegin(GL_QUADS);
-            if (jungle) glColor3f(0.42f, 0.62f, 0.56f);
-            else        glColor3f(0.91f, 0.62f, 0.36f);
-            glVertex2f(x, y);
-            glVertex2f(x + kCardW, y);
-            if (jungle) glColor3f(0.08f, 0.20f, 0.19f);
-            else        glColor3f(0.28f, 0.24f, 0.33f);
-            glVertex2f(x + kCardW, y + kCardH);
-            glVertex2f(x, y + kCardH);
-        glEnd();
+        m_desert.drawFar(pan, 1.0f, 0.0f);
+        m_desert.drawNear(pan * cfg::NEAR_LAYER_FACTOR, 1.0f);
     }
+    glPopMatrix();
+    glDisable(GL_SCISSOR_TEST);
 }
 
 void Menu::draw() const {

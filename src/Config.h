@@ -12,7 +12,8 @@ constexpr float TARGET_ASPECT     = LOGICAL_W / LOGICAL_H;
 
 constexpr float BASE_SCROLL_SPEED = 120.0f;              // logical units per second at 1.0x
 constexpr float NEAR_LAYER_FACTOR = 1.5f;                // foreground strip scrolls faster (parallax)
-constexpr float FOREGROUND_SPLIT  = 0.20f;               // bottom fraction of image = near layer
+constexpr float FOREGROUND_SPLIT  = 0.20f;               // bottom fraction of the scene = near layer
+constexpr float SCENE_PERIOD      = 2000.0f;             // procedural scenery repeats every 2 screens
 
 constexpr int   FRAME_MS          = 16;                  // ~60 FPS timer period
 constexpr float MAX_DT            = 0.1f;                // clamp dt after window-drag stalls

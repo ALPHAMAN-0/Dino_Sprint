@@ -1,7 +1,6 @@
 #include "Background.h"
 #include "Config.h"
 #include "GameState.h"
-#include "Texture.h"
 
 #ifdef __APPLE__
 #include <GLUT/glut.h>
@@ -10,47 +9,13 @@
 #endif
 
 #include <cmath>
-#include <cstdio>
 
 void Background::init() {
-    // Nothing to preload: the texture is loaded by loadTheme() once the
-    // player picks a world on the start menu (see Texture.cpp for the
-    // POT-padded, GL 1.1-safe upload path).
+    // Nothing to load: the scenery is drawn procedurally each frame.
 }
 
-void Background::loadTheme(Theme t) {
+void Background::setTheme(Theme t) {
     m_theme = t;
-
-    // Switching themes replaces the texture; free the previous one.
-    if (m_texId != 0) {
-        glDeleteTextures(1, &m_texId);
-        m_texId = 0;
-    }
-    m_loaded = false;
-
-    Texture2D tex = loadThemeTexture(t);
-    if (tex.ok) {
-        m_texId = tex.id;
-        m_imgW  = tex.imgW;
-        m_imgH  = tex.imgH;
-        m_texW  = tex.texW;
-        m_texH  = tex.texH;
-        m_uMax  = tex.uMax;
-        m_vMax  = tex.vMax;
-        m_loaded = true;
-        // One copy spans the full logical height at the image's true aspect,
-        // so the art is never stretched even if the photo is not exactly 2.5:1.
-        m_tileW = cfg::LOGICAL_H * (float)m_imgW / (float)m_imgH;
-    } else {
-        m_tileW = cfg::LOGICAL_W;
-        std::fprintf(stderr,
-            "[Dino Sprint] WARNING: could not load %s.\n"
-            "[Dino Sprint] Put the image in <repo>/assets/ and run from the repo root.\n"
-            "[Dino Sprint] Running with procedural fallback background.\n",
-            (t == Theme::Jungle) ? "assets/background_jungle.png"
-                                 : "assets/background_desert.png");
-    }
-
     // Fresh scroll for the new world.
     m_scrollFar = 0.0f;
     m_scrollNear = 0.0f;
@@ -62,143 +27,37 @@ void Background::update(float dt, const GameState& state) {
     m_darkness = state.darkness();
     m_skyTime += dt;
 
-    const float period = 2.0f * m_tileW;   // one normal + one mirrored copy
     m_scrollFar  += cfg::BASE_SCROLL_SPEED * speedMultiplier * dt;
     m_scrollNear += cfg::BASE_SCROLL_SPEED * cfg::NEAR_LAYER_FACTOR * speedMultiplier * dt;
     // Wrap every frame so float precision never degrades on long runs. The
-    // wrap is invisible: the mirror pattern repeats exactly every 2*tileW.
-    m_scrollFar  = std::fmod(m_scrollFar,  period);
-    m_scrollNear = std::fmod(m_scrollNear, period);
-    if (m_scrollFar  < 0.0f) m_scrollFar  += period;
-    if (m_scrollNear < 0.0f) m_scrollNear += period;
-}
-
-// Draw one horizontal band of the endless strip. Tile k covers world-x
-// [k*tileW, (k+1)*tileW) and is mirrored iff k is odd; the camera shows
-// world-x [offset, offset + LOGICAL_W). Adjacent tiles are seamless because
-// both sample the identical edge column where they meet (u=1|u=1, u=0|u=0).
-void Background::drawLayer(float offset, float v0, float v1, float y0, float y1) const {
-    int kFirst = (int)std::floor(offset / m_tileW);
-    int kLast  = (int)std::floor((offset + cfg::LOGICAL_W) / m_tileW);
-    for (int k = kFirst; k <= kLast; ++k) {
-        float x0 = (float)k * m_tileW - offset;
-        float x1 = x0 + m_tileW;
-        bool mirrored = (k & 1) != 0;
-        // Sample [halfTexel, uMax - halfTexel], not [0, 1]: the high end skips
-        // the POT padding, and the half-texel insets keep GL_LINEAR's footprint
-        // off the texture border — old GL_CLAMP runtimes (Windows GL 1.1)
-        // blend the black border color at u=0, painting a dark line at every
-        // other mirror seam. Junctions stay seamless: both quads at a shared
-        // edge sample the identical inset column.
-        float uIn0 = 0.5f / (float)m_texW;
-        float uIn1 = m_uMax - 0.5f / (float)m_texW;
-        float u0 = mirrored ? uIn1 : uIn0;
-        float u1 = mirrored ? uIn0 : uIn1;
-        glBegin(GL_QUADS);
-            glTexCoord2f(u0, v0); glVertex2f(x0, y0);
-            glTexCoord2f(u1, v0); glVertex2f(x1, y0);
-            glTexCoord2f(u1, v1); glVertex2f(x1, y1);
-            glTexCoord2f(u0, v1); glVertex2f(x0, y1);
-        glEnd();
-    }
+    // wrap is invisible: all scenery repeats exactly every SCENE_PERIOD.
+    m_scrollFar  = std::fmod(m_scrollFar,  cfg::SCENE_PERIOD);
+    m_scrollNear = std::fmod(m_scrollNear, cfg::SCENE_PERIOD);
+    if (m_scrollFar  < 0.0f) m_scrollFar  += cfg::SCENE_PERIOD;
+    if (m_scrollNear < 0.0f) m_scrollNear += cfg::SCENE_PERIOD;
 }
 
 void Background::draw() const {
-    if (!m_loaded) {
-        drawFallback();   // draws the sun itself, between its sky and ground
-        drawNightSky();
-        return;
-    }
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, m_texId);
     // Multiplicative dimming as night falls; the blue shift comes from the
-    // overlay in drawNightSky(). The jungle dims less: its art is already
-    // dark, and the desert's full 0.55 would crush it to near-black.
+    // overlay in drawNightSky(). The jungle dims less: its palette is
+    // already dark, and the desert's full 0.55 would crush it to black.
     const float dimDepth = (m_theme == Theme::Jungle) ? 0.30f : 0.55f;
     const float tint = 1.0f - dimDepth * m_darkness;
-    glColor3f(tint, tint, tint);
 
-    const float splitY = cfg::LOGICAL_H * cfg::FOREGROUND_SPLIT;
-    // v-coords scale by m_vMax so only the real image is sampled, not the POT
-    // padding above it. Every band edge is inset by half a texel: at the
-    // split because the bands scroll at different speeds and cross-band
-    // bilinear bleed paints a 1px shear line, and at v=0 / v=vMax to keep
-    // GL_LINEAR's footprint off the texture border on old GL_CLAMP runtimes
-    // (same black-border issue as in drawLayer).
-    const float inset  = 0.5f / (float)m_texH;
-    const float vSplit = cfg::FOREGROUND_SPLIT * m_vMax;
-    // Far layer first (painter's order): upper part of the photo, 1.0x speed.
-    // Each band fills the same screen fraction it occupies in the image, so at
-    // scroll=0 the two bands reassemble the original photo exactly.
-    drawLayer(m_scrollFar, vSplit + inset, m_vMax - inset, splitY, cfg::LOGICAL_H);
-
-    // The sun is drawn BETWEEN the layers: in front of the far scenery but
-    // behind the near road strip, so as it sinks it is genuinely swallowed
-    // by the road — a real sunset occlusion, not a fade in mid-air.
-    glDisable(GL_TEXTURE_2D);
-    drawSun();
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, m_texId);
-    glColor3f(tint, tint, tint);   // drawSun changed the current color
-
-    // Near layer: the blurred dark road strip, NEAR_LAYER_FACTOR x speed.
-    drawLayer(m_scrollNear, inset, vSplit - inset, 0.0f, splitY);
-
-    glDisable(GL_TEXTURE_2D);
-    drawNightSky();
-    drawWindowLights();   // after the night wash so the glow stays bright
-}
-
-// The adobe house's windows and doorway light up at night. The house is
-// baked into the scrolling far layer, so the light quads are placed with the
-// SAME tile transform drawLayer uses (including the horizontal flip of every
-// odd tile) — the glow rides exactly on the house and its mirrored copies.
-// Rects are normalized to the placeholder image (u from left, v from bottom);
-// if the background art is swapped, update or remove kHouseLights.
-void Background::drawWindowLights() const {
-    if (m_theme != Theme::Desert) return;   // the house is desert-only art
-    if (m_darkness <= 0.15f) return;
-
-    // Pane rects from the generator (image coords / 1000 wide, / 400 tall).
-    static const struct { float u, v, w, h; } kHouseLights[] = {
-        { 0.649f, 0.3225f, 0.012f, 0.0225f },   // left window pane
-        { 0.699f, 0.3225f, 0.012f, 0.0225f },   // right window pane
-        { 0.673f, 0.2700f, 0.014f, 0.0625f },   // doorway pane
-    };
-
-    const float a = (m_darkness - 0.15f) / 0.85f;   // ramp in with the dark
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    int kFirst = (int)std::floor(m_scrollFar / m_tileW);
-    int kLast  = (int)std::floor((m_scrollFar + cfg::LOGICAL_W) / m_tileW);
-    for (int k = kFirst; k <= kLast; ++k) {
-        bool mirrored = (k & 1) != 0;
-        float tileX = (float)k * m_tileW - m_scrollFar;
-        for (const auto& L : kHouseLights) {
-            float un = mirrored ? 1.0f - L.u - L.w : L.u;
-            float x0 = tileX + un * m_tileW;
-            float x1 = x0 + L.w * m_tileW;
-            float y0 = L.v * cfg::LOGICAL_H;
-            float y1 = y0 + L.h * cfg::LOGICAL_H;
-            // soft glow halo, then the bright pane
-            glColor4f(1.0f, 0.72f, 0.32f, 0.25f * a);
-            glBegin(GL_QUADS);
-                glVertex2f(x0 - 4.0f, y0 - 4.0f);
-                glVertex2f(x1 + 4.0f, y0 - 4.0f);
-                glVertex2f(x1 + 4.0f, y1 + 4.0f);
-                glVertex2f(x0 - 4.0f, y1 + 4.0f);
-            glEnd();
-            glColor4f(1.0f, 0.85f, 0.45f, 0.90f * a);
-            glBegin(GL_QUADS);
-                glVertex2f(x0, y0);
-                glVertex2f(x1, y0);
-                glVertex2f(x1, y1);
-                glVertex2f(x0, y1);
-            glEnd();
-        }
+    if (m_theme == Theme::Jungle) {
+        // Under the canopy there is no direct sun, so no between-layer pass.
+        m_jungle.drawFar(m_scrollFar, tint);
+        m_jungle.drawNear(m_scrollNear, tint);
+    } else {
+        m_desert.drawFar(m_scrollFar, tint, m_darkness);
+        // The sun is drawn BETWEEN the layers: in front of the far scenery
+        // but behind the near road strip, so as it sinks it is genuinely
+        // swallowed by the road — a real sunset occlusion, not a fade.
+        drawSun();
+        m_desert.drawNear(m_scrollNear, tint);
     }
-    glDisable(GL_BLEND);
+
+    drawNightSky();
 }
 
 // Filled disc with the current glColor (GL 1.1-safe triangle fan).
@@ -212,12 +71,9 @@ static void drawDisc(float cx, float cy, float r) {
     glEnd();
 }
 
-// The sun is drawn in code, not baked into the image: anything inside the
-// tiled texture repeats with every (mirrored) copy — a baked sun shows up
-// twice whenever the screen spans a tile junction. It is drawn between the
-// far layer and the near road strip, so its descent ends BEHIND the road:
-// the strip progressively swallows the disc as it sets. On the way down its
-// color shifts from warm daylight white to deep sunset red.
+// One sun, never tiled with the scenery: anything drawn inside the repeating
+// scene would show up once per copy. On the way down its color shifts from
+// warm daylight white to deep sunset red.
 void Background::drawSun() const {
     if (m_theme == Theme::Jungle) return;   // under canopy: no direct sunlight
     if (m_sunAlt <= 0.0f) return;   // fully set — completely behind the road
@@ -320,54 +176,5 @@ void Background::drawFireflies() const {
         drawDisc(x, y, 7.0f);                     // soft green halo
         glColor4f(0.80f, 1.00f, 0.45f, 0.85f * m_darkness * pulse);
         drawDisc(x, y, 1.8f);                     // bright core
-    }
-}
-
-void Background::drawFallback() const {
-    const float splitY = cfg::LOGICAL_H * cfg::FOREGROUND_SPLIT;
-    const bool jungle = (m_theme == Theme::Jungle);
-    // Same night dimming as the texture path (jungle dims less).
-    const float t = 1.0f - (jungle ? 0.30f : 0.55f) * m_darkness;
-
-    // Sky gradient: warm dusk for desert, misty teal for jungle.
-    glBegin(GL_QUADS);
-        if (jungle) glColor3f(0.55f * t, 0.75f * t, 0.70f * t);   // bright mist
-        else        glColor3f(0.91f * t, 0.62f * t, 0.36f * t);   // horizon orange
-        glVertex2f(0.0f, splitY);
-        glVertex2f(cfg::LOGICAL_W, splitY);
-        if (jungle) glColor3f(0.10f * t, 0.22f * t, 0.22f * t);   // dark canopy top
-        else        glColor3f(0.28f * t, 0.24f * t, 0.33f * t);   // violet-blue top
-        glVertex2f(cfg::LOGICAL_W, cfg::LOGICAL_H);
-        glVertex2f(0.0f, cfg::LOGICAL_H);
-    glEnd();
-
-    drawSun();   // desert only (no-op in jungle); occluded by the ground below
-
-    // Ground band.
-    if (jungle) glColor3f(0.20f * t, 0.32f * t, 0.14f * t);
-    else        glColor3f(0.24f * t, 0.15f * t, 0.10f * t);
-    glBegin(GL_QUADS);
-        glVertex2f(0.0f, 0.0f);
-        glVertex2f(cfg::LOGICAL_W, 0.0f);
-        glVertex2f(cfg::LOGICAL_W, splitY);
-        glVertex2f(0.0f, splitY);
-    glEnd();
-
-    // Darker rocks drifting with the near-layer scroll so motion and the
-    // +/- speed keys stay testable with no asset present.
-    if (jungle) glColor3f(0.06f * t, 0.11f * t, 0.05f * t);   // dark undergrowth
-    else        glColor3f(0.13f * t, 0.08f * t, 0.06f * t);
-    for (int i = 0; i < 5; ++i) {
-        float x = std::fmod((float)i * 230.0f - m_scrollNear, cfg::LOGICAL_W);
-        if (x < 0.0f) x += cfg::LOGICAL_W;
-        const float bases[2] = {x, x - cfg::LOGICAL_W};   // wrap-around copy
-        for (float base : bases) {
-            glBegin(GL_QUADS);
-                glVertex2f(base, 0.0f);
-                glVertex2f(base + 60.0f, 0.0f);
-                glVertex2f(base + 60.0f, splitY * 0.6f);
-                glVertex2f(base, splitY * 0.6f);
-            glEnd();
-        }
     }
 }

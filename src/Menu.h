@@ -2,18 +2,19 @@
 #define MENU_H
 
 #include "GameState.h"   // Theme
-#include "Texture.h"
+#include "DesertScene.h"
+#include "JungleScene.h"
 
-// Start-screen world select: one preview card per theme, textured with the
-// same background image that world plays on, so the player picks by looking
-// at the actual map. Cards are chosen with the mouse (hover highlights,
-// click starts), LEFT/RIGHT + ENTER, or the direct 1 / 2 keys. main.cpp owns
-// the GLUT callbacks and forwards here; this module owns layout, the preview
-// textures, and drawing.
+// Start-screen world select: one preview card per theme, showing a live,
+// slowly-scrolling miniature of the actual procedural scenery — the player
+// picks by looking at the real map, and nothing is loaded from disk. Cards
+// are chosen with the mouse (hover highlights, click starts), LEFT/RIGHT +
+// ENTER, or the direct 1 / 2 keys. main.cpp owns the GLUT callbacks and
+// forwards here; this module owns layout, the previews, and drawing.
 class Menu {
 public:
-    void  init();                 // loads both previews; needs a GL context
-    void  update(float dt);       // drives the highlight pulse
+    void  init();
+    void  update(float dt);       // drives the highlight pulse + preview pan
     void  draw() const;
 
     int   hitTest(float lx, float ly) const;   // card index at logical point, -1 = none
@@ -24,9 +25,10 @@ public:
 private:
     void drawCard(int idx) const;
 
-    Texture2D m_tex[2];       // 0 = desert, 1 = jungle
+    DesertScene m_desert;
+    JungleScene m_jungle;
     int   m_selected = 0;
-    float m_time = 0.0f;      // pulse clock
+    float m_time = 0.0f;      // pulse + preview scroll clock
 };
 
 #endif // MENU_H
