@@ -1,12 +1,8 @@
 #ifndef OBSTACLE_H
 #define OBSTACLE_H
 
-#include "GameState.h"   // Theme
+#include "GameState.h"
 
-// Ground obstacles: dark rock spikes standing on the road strip, scrolling
-// toward the dino at ground speed (near-layer speed x the game multiplier).
-// Each one respawns off-screen right with a fresh random size and gap.
-// Collision with the Dino (loseLife) hooks in once the Dino exists.
 class Obstacle {
 public:
     void init();
@@ -15,11 +11,11 @@ public:
 
 private:
     struct Rock {
-        float x = 0.0f;         // left edge
+        float x = 0.0f;
         float w = 30.0f;
         float h = 50.0f;
-        bool  twin = false;     // single spike or a double one
-        bool  boulder = false;  // faceted rock instead of spikes
+        bool  twin = false;
+        bool  boulder = false;
     };
 
     void drawBoulder(const Rock& r, float t) const;
@@ -27,9 +23,9 @@ private:
     static const int COUNT = 3;
     Rock  m_rocks[COUNT];
     float m_darkness = 0.0f;
-    Theme m_theme = Theme::Desert;   // silhouette palette follows the world
+    Theme m_theme = Theme::Desert;
 
     void respawn(Rock& r, float x);
 };
 
-#endif // OBSTACLE_H
+#endif

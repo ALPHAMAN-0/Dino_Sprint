@@ -8,6 +8,7 @@ void GameState::init() {
     m_cycleTime = 0.0f;
     m_lives = 3;
     m_running = true;
+    m_paused = false;
 }
 
 void GameState::loseLife() {
@@ -20,15 +21,16 @@ void GameState::advanceTime(float dt) {
 }
 
 float GameState::sunAltitude() const {
-    if (m_cycleTime < cfg::DAY_SECONDS)                       // smooth descent
+    if (m_cycleTime < cfg::DAY_SECONDS)
         return 1.0f - m_cycleTime / cfg::DAY_SECONDS;
-    if (m_cycleTime < cfg::DAY_SECONDS + cfg::NIGHT_SECONDS)  // below horizon
+    if (m_cycleTime < cfg::DAY_SECONDS + cfg::NIGHT_SECONDS)
         return 0.0f;
     return (m_cycleTime - cfg::DAY_SECONDS - cfg::NIGHT_SECONDS)
-           / cfg::SUNRISE_SECONDS;                            // climbing back
+           / cfg::SUNRISE_SECONDS;
 }
 
 float GameState::darkness() const {
+    if (m_theme == Theme::Jungle) return 0.0f;
     float d = 1.0f - sunAltitude() / cfg::DUSK_START_ALT;
     if (d < 0.0f) d = 0.0f;
     if (d > 1.0f) d = 1.0f;

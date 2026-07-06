@@ -22,7 +22,6 @@ void Score::update(float dt, GameState& state) {
     m_theme = state.theme();
 }
 
-// Filled heart: two lobes (triangle fans) over a point-down triangle.
 void Score::drawHeart(float cx, float cy, float s) const {
     const float lobeR = 0.52f * s;
     const float lobeY = cy + 0.30f * s;
@@ -44,8 +43,6 @@ void Score::drawHeart(float cx, float cy, float s) const {
 }
 
 void Score::drawText(float x, float y, const char* s) const {
-    // glColor must be set BEFORE glRasterPos: the raster color is locked in
-    // at the glRasterPos call, not at glutBitmapCharacter time.
     glRasterPos2f(x, y);
     for (const char* c = s; *c; ++c)
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
@@ -56,30 +53,24 @@ void Score::draw() const {
     int total = (int)m_elapsed;
     std::snprintf(buf, sizeof(buf), "TIME %02d:%02d", total / 60, total % 60);
 
-    // Bitmap-font width is in window pixels, but with the default ~1000px-wide
-    // window logical units are close to 1:1 — half the pixel width centers the
-    // text well enough for a HUD.
     float halfW = 0.5f * (float)glutBitmapLength(
         GLUT_BITMAP_HELVETICA_18, (const unsigned char*)buf);
     float x = cfg::LOGICAL_W * 0.5f - halfW;
     float y = cfg::LOGICAL_H - 28.0f;
 
-    // Dark text on the bright day sky, flipping to light text as night falls.
-    // The jungle's canopy top is dark even at noon, so treat it as night.
     const float d = (m_theme == Theme::Jungle) ? 1.0f : m_darkness;
-    glColor3f(0.98f - 0.88f * d, 0.92f - 0.82f * d, 0.80f - 0.62f * d);   // shadow
+    glColor3f(0.98f - 0.88f * d, 0.92f - 0.82f * d, 0.80f - 0.62f * d);
     drawText(x + 1.5f, y - 1.5f, buf);
-    glColor3f(0.25f + 0.70f * d, 0.16f + 0.76f * d, 0.10f + 0.70f * d);   // main
+    glColor3f(0.25f + 0.70f * d, 0.16f + 0.76f * d, 0.10f + 0.70f * d);
     drawText(x, y, buf);
 
-    // Lives: hearts in the top-right corner.
     const float heartS = 11.0f;
     const float heartY = cfg::LOGICAL_H - 32.0f;
     for (int i = 0; i < m_lives; ++i) {
         float cx = cfg::LOGICAL_W - 34.0f - (float)i * 30.0f;
-        glColor3f(0.30f, 0.06f, 0.08f);              // dark outline-ish backing
+        glColor3f(0.30f, 0.06f, 0.08f);
         drawHeart(cx + 1.0f, heartY - 1.0f, heartS);
-        glColor3f(0.88f, 0.16f, 0.22f);              // red heart
+        glColor3f(0.88f, 0.16f, 0.22f);
         drawHeart(cx, heartY, heartS);
     }
 }

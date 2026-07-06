@@ -10,7 +10,6 @@
 
 #include <cmath>
 
-// Day/night tint, set once per draw call (same pattern as JungleScene).
 static float sT = 1.0f;
 
 static void C3(float r, float g, float b) { glColor3f(r * sT, g * sT, b * sT); }
@@ -30,10 +29,7 @@ static void forCopies(float worldX, float base, float margin, F draw) {
     }
 }
 
-// ---- far layer elements ----------------------------------------------------
-
 static void mesa(float sx, int i, bool farRow) {
-    // Flat-topped butte: a trapezoid, wider than tall.
     const float w = su::hf(i, 1, 120.0f, 260.0f) * (farRow ? 1.3f : 1.0f);
     const float h = su::hf(i, 2, 40.0f, 90.0f) * (farRow ? 1.2f : 1.0f);
     const float yb = farRow ? 118.0f : 112.0f;
@@ -48,36 +44,32 @@ static void mesa(float sx, int i, bool farRow) {
 }
 
 static void saguaro(float sx, int i) {
-    // Classic cactus: a trunk and two arms that rise beside it.
     const float h = su::hf(i, 8, 45.0f, 80.0f);
     const float w = h * 0.16f;
     C3(0.33f, 0.52f, 0.28f);
     quad(sx - w * 0.5f, 112.0f, sx + w * 0.5f, 112.0f + h);
-    // left arm: out then up
     const float ay = 112.0f + h * su::hf(i, 9, 0.35f, 0.55f);
     quad(sx - w * 1.9f, ay, sx - w * 0.5f, ay + w);
     quad(sx - w * 1.9f, ay, sx - w * 0.9f, ay + h * 0.30f);
-    // right arm, slightly lower
     const float by = 112.0f + h * su::hf(i, 10, 0.20f, 0.40f);
     quad(sx + w * 0.5f, by, sx + w * 1.9f, by + w);
     quad(sx + w * 0.9f, by, sx + w * 1.9f, by + h * 0.24f);
 }
 
 static void acacia(float sx, int i) {
-    // Flat-topped tree: dark trunk, wide green canopy slab.
     const float h = su::hf(i, 12, 45.0f, 65.0f);
     C3(0.28f, 0.19f, 0.13f);
     glBegin(GL_QUADS);
         glVertex2f(sx - 3.0f, 112.0f); glVertex2f(sx + 3.0f, 112.0f);
         glVertex2f(sx + 2.0f, 112.0f + h); glVertex2f(sx - 2.0f, 112.0f + h);
     glEnd();
-    glBegin(GL_TRIANGLES);   // one low branch
+    glBegin(GL_TRIANGLES);
         glVertex2f(sx, 112.0f + h * 0.45f);
         glVertex2f(sx + 16.0f, 112.0f + h * 0.62f);
         glVertex2f(sx, 112.0f + h * 0.52f);
     glEnd();
     C3(0.30f, 0.45f, 0.22f);
-    glBegin(GL_QUADS);       // canopy: wide, thin, slightly domed
+    glBegin(GL_QUADS);
         glVertex2f(sx - 42.0f, 112.0f + h);
         glVertex2f(sx + 42.0f, 112.0f + h);
         glVertex2f(sx + 28.0f, 112.0f + h + 14.0f);
@@ -85,28 +77,25 @@ static void acacia(float sx, int i) {
     glEnd();
 }
 
-// The adobe house. Window panes lerp from dark to a warm glow as night
-// falls — this replaces the old texture-tracking window-light overlay.
 static void house(float sx, float darkness) {
-    C3(0.80f, 0.64f, 0.47f);                       // walls
+    C3(0.80f, 0.64f, 0.47f);
     quad(sx, 112.0f, sx + 110.0f, 182.0f);
-    C3(0.48f, 0.32f, 0.24f);                       // roof slab
+    C3(0.48f, 0.32f, 0.24f);
     glBegin(GL_QUADS);
         glVertex2f(sx - 8.0f, 182.0f);
         glVertex2f(sx + 118.0f, 182.0f);
         glVertex2f(sx + 104.0f, 200.0f);
         glVertex2f(sx + 6.0f, 200.0f);
     glEnd();
-    C3(0.30f, 0.20f, 0.15f);                       // doorway
+    C3(0.30f, 0.20f, 0.15f);
     quad(sx + 47.0f, 112.0f, sx + 63.0f, 146.0f);
 
-    // window panes: dark wood by day, warm light at night
     const float a = darkness;
     const float wr = 0.25f + 0.75f * a, wg = 0.18f + 0.62f * a, wb = 0.14f + 0.26f * a;
     C3(wr, wg, wb);
     quad(sx + 18.0f, 138.0f, sx + 34.0f, 154.0f);
     quad(sx + 76.0f, 138.0f, sx + 92.0f, 154.0f);
-    if (a > 0.15f) {                               // soft halo once it's dark
+    if (a > 0.15f) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glColor4f(1.0f, 0.72f, 0.32f, 0.25f * a);
@@ -116,13 +105,10 @@ static void house(float sx, float darkness) {
     }
 }
 
-// ---- layers ----------------------------------------------------------------
-
 void DesertScene::drawFar(float scroll, float tint, float darkness) const {
     sT = tint;
     const float base = su::wrapScroll(scroll, cfg::SCENE_PERIOD);
 
-    // warm sky: sandy horizon into a pale cream zenith
     glBegin(GL_QUADS);
         C3(0.93f, 0.76f, 0.55f);
         glVertex2f(0.0f, 80.0f); glVertex2f(cfg::LOGICAL_W, 80.0f);
@@ -130,7 +116,6 @@ void DesertScene::drawFar(float scroll, float tint, float darkness) const {
         glVertex2f(cfg::LOGICAL_W, 400.0f); glVertex2f(0.0f, 400.0f);
     glEnd();
 
-    // two rows of distant mesas (far pale row first)
     static const float mesaFarX[]  = { 40, 320, 620, 980, 1300, 1700 };
     static const float mesaNearX[] = { 180, 520, 860, 1150, 1520, 1860 };
     for (int i = 0; i < 6; ++i)
@@ -138,17 +123,15 @@ void DesertScene::drawFar(float scroll, float tint, float darkness) const {
     for (int i = 0; i < 6; ++i)
         forCopies(mesaNearX[i], base, 300.0f, [i](float sx) { mesa(sx, i + 20, false); });
 
-    // sand ground with a lighter road edge
     C3(0.88f, 0.73f, 0.52f); quad(0.0f, 80.0f, cfg::LOGICAL_W, 118.0f);
     C3(0.93f, 0.81f, 0.60f); quad(0.0f, 80.0f, cfg::LOGICAL_W, 92.0f);
 
-    // low dune streaks on the sand (subtle darker triangles)
     const float dW = 250.0f;
     const int dPer = (int)(cfg::SCENE_PERIOD / dW);
     C3(0.84f, 0.68f, 0.47f);
     glBegin(GL_TRIANGLES);
     {
-        int i0 = (int)std::floor(base / dW) - 1;   // streaks overhang: start early
+        int i0 = (int)std::floor(base / dW) - 1;
         for (int i = i0; i <= i0 + (int)(cfg::LOGICAL_W / dW) + 2; ++i) {
             int id = ((i % dPer) + dPer) % dPer;
             float x0 = (float)i * dW - base + su::hf(id, 30, 0.0f, 80.0f);
@@ -160,14 +143,12 @@ void DesertScene::drawFar(float scroll, float tint, float darkness) const {
     }
     glEnd();
 
-    // vegetation + the house (world x within one 2000-unit period)
     static const float cactusX[] = { 160, 520, 1130, 1720 };
     for (int i = 0; i < 4; ++i)
         forCopies(cactusX[i], base, 60.0f, [i](float sx) { saguaro(sx, i); });
     forCopies(1450.0f, base, 80.0f, [](float sx) { acacia(sx, 0); });
     forCopies(760.0f, base, 160.0f, [darkness](float sx) { house(sx, darkness); });
 
-    // scattered small rocks and dry shrubs on the sand line
     const float sW = 200.0f;
     const int sPer = (int)(cfg::SCENE_PERIOD / sW);
     glBegin(GL_TRIANGLES);
@@ -177,12 +158,12 @@ void DesertScene::drawFar(float scroll, float tint, float darkness) const {
             int id = ((i % sPer) + sPer) % sPer;
             float rx = (float)i * sW - base + su::hf(id, 35, 10.0f, sW - 10.0f);
             if (su::hf(id, 36, 0.0f, 1.0f) > 0.5f) {
-                C3(0.72f, 0.58f, 0.42f);   // rock
+                C3(0.72f, 0.58f, 0.42f);
                 glVertex2f(rx - 8.0f, 112.0f);
                 glVertex2f(rx + 8.0f, 112.0f);
                 glVertex2f(rx, 112.0f + su::hf(id, 37, 6.0f, 12.0f));
             } else {
-                C3(0.55f, 0.48f, 0.30f);   // dry shrub
+                C3(0.55f, 0.48f, 0.30f);
                 for (int b = -1; b <= 1; ++b) {
                     glVertex2f(rx + (float)b * 4.0f, 112.0f);
                     glVertex2f(rx + (float)b * 4.0f + 4.0f, 112.0f);
@@ -198,11 +179,9 @@ void DesertScene::drawNear(float scroll, float tint) const {
     sT = tint;
     const float base = su::wrapScroll(scroll, cfg::SCENE_PERIOD);
 
-    // the dark rocky road strip the dino runs on
     C3(0.15f, 0.095f, 0.065f);
     quad(0.0f, 0.0f, cfg::LOGICAL_W, 80.0f);
 
-    // big soft-edged rock chunks (darker) with a few lit patches
     const float segW = 200.0f;
     const int per = (int)(cfg::SCENE_PERIOD / segW);
     glBegin(GL_QUADS);
@@ -226,7 +205,6 @@ void DesertScene::drawNear(float scroll, float tint) const {
     }
     glEnd();
 
-    // uneven top edge of the strip
     const float eW = 100.0f;
     const int ePer = (int)(cfg::SCENE_PERIOD / eW);
     C3(0.13f, 0.085f, 0.06f);

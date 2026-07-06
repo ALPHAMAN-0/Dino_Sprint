@@ -1,9 +1,3 @@
-// Dino Sprint — GLUT wiring and game loop.
-//
-// GLUT callbacks are plain C function pointers with no user-data slot, so the
-// game objects live as file-scope statics and the registered callbacks are
-// free functions that forward to them (the standard GLUT pattern).
-
 #ifdef __APPLE__
 #include <GLUT/glut.h>
 #else
@@ -21,6 +15,7 @@
 #include "InputManager.h"
 #include "Background.h"
 #include "Birds.h"
+#include "Monkey.h"
 #include "Dino.h"
 #include "Menu.h"
 #include "Obstacle.h"
@@ -32,6 +27,7 @@ static GameState    gState;
 static InputManager gInput;
 static Background   gBackground;
 static Birds        gBirds;
+static Monkey       gMonkey;
 static Dino         gDino;
 static Menu         gMenu;
 static Obstacle     gObstacle;
@@ -40,15 +36,9 @@ static Dragon       gDragon;
 static Score        gScore;
 static int          gPrevTimeMs = 0;
 
-// Letterboxed viewport from the last reshape, needed to map mouse clicks
-// (window pixels, y down) into logical coords (y up).
 static int  gVpX = 0, gVpY = 0, gVpW = 1, gVpH = 1;
-static bool gWantShot = false;   // 'P' pressed: dump the next frame to a BMP
+static bool gWantShot = false;
 
-// Headless-ish test mode: `./dino_sprint --shot out.bmp [menu|desert|jungle] [secs]`
-// renders a few frames (after fast-forwarding the world `secs` simulated
-// seconds), saves one to out.bmp, and exits. Lets screenshots be taken from
-// scripts without stealing keyboard focus from the user.
 static const char* gShotPath   = nullptr;
 static const char* gShotWorld  = "menu";
 static float       gShotWarmup = 0.0f;
@@ -60,10 +50,6 @@ static bool windowToLogical(int mx, int my, float& lx, float& ly) {
     return lx >= 0.0f && lx <= cfg::LOGICAL_W && ly >= 0.0f && ly <= cfg::LOGICAL_H;
 }
 
-// Debug helper ('P'): save the frame as a BMP via glReadPixels — no image
-// library needed, BMP rows are bottom-up exactly like GL's read-back, and
-// GL_PACK_ALIGNMENT=4 matches BMP's 4-byte row padding. Called right before
-// glutSwapBuffers so the back buffer still holds the finished frame.
 static bool saveScreenshotBMP(const char* path) {
     const int w = glutGet(GLUT_WINDOW_WIDTH);
     const int h = glutGet(GLUT_WINDOW_HEIGHT);
@@ -72,7 +58,7 @@ static bool saveScreenshotBMP(const char* path) {
     std::vector<unsigned char> px((size_t)stride * (size_t)h);
     glPixelStorei(GL_PACK_ALIGNMENT, 4);
     glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, px.data());
-    for (int y = 0; y < h; ++y)          // GL gives RGB, BMP wants BGR
+    for (int y = 0; y < h; ++y)
         for (int x = 0; x < w; ++x)
             std::swap(px[(size_t)y * stride + (size_t)x * 3],
                       px[(size_t)y * stride + (size_t)x * 3 + 2]);
@@ -85,13 +71,13 @@ static bool saveScreenshotBMP(const char* path) {
         hd[at + 2] = (unsigned char)((v >> 16) & 0xFF);
         hd[at + 3] = (unsigned char)((v >> 24) & 0xFF);
     };
-    put32(2, 54 + imgBytes);             // file size
-    put32(10, 54);                       // pixel data offset
-    put32(14, 40);                       // BITMAPINFOHEADER size
+    put32(2, 54 + imgBytes);
+    put32(10, 54);
+    put32(14, 40);
     put32(18, (unsigned int)w);
     put32(22, (unsigned int)h);
-    hd[26] = 1;                          // planes
-    hd[28] = 24;                         // bits per pixel
+    hd[26] = 1;
+    hd[28] = 24;
     put32(34, imgBytes);
 
     FILE* f = std::fopen(path, "wb");
@@ -111,11 +97,11 @@ static bool saveScreenshotBMP(const char* path) {
     return ok;
 }
 
-// One simulation tick, shared by the timer and the --shot fast-forward.
 static void stepWorld(float dt) {
-    gState.advanceTime(dt);   // day/night cycle first: everyone reads it this frame
+    gState.advanceTime(dt);
     gBackground.update(dt, gState);
     gBirds.update(dt, gState);
+    gMonkey.update(dt, gState);
     gDino.update(dt, gState);
     gObstacle.update(dt, gState);
     gPoints.update(dt, gState);
@@ -123,48 +109,80 @@ static void stepWorld(float dt) {
     gScore.update(dt, gState);
 }
 
+static void drawUiText(float x, float y, const char* s, void* font) {
+    glRasterPos2f(x, y);
+    for (const char* c = s; *c; ++c)
+        glutBitmapCharacter(font, *c);
+}
+
+static void drawUiCenteredText(float cx, float y, const char* s, void* font) {
+    float halfW = 0.5f * (float)glutBitmapLength(font, (const unsigned char*)s);
+    drawUiText(cx - halfW, y, s, font);
+}
+
+static void drawPauseOverlay() {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.0f, 0.0f, 0.0f, 0.55f);
+    glBegin(GL_QUADS);
+        glVertex2f(0.0f, 0.0f);
+        glVertex2f(cfg::LOGICAL_W, 0.0f);
+        glVertex2f(cfg::LOGICAL_W, cfg::LOGICAL_H);
+        glVertex2f(0.0f, cfg::LOGICAL_H);
+    glEnd();
+    glDisable(GL_BLEND);
+
+    glColor3f(0.98f, 0.92f, 0.65f);
+    drawUiCenteredText(cfg::LOGICAL_W * 0.5f, cfg::LOGICAL_H * 0.5f + 8.0f,
+                        "PAUSED", GLUT_BITMAP_TIMES_ROMAN_24);
+    glColor3f(0.85f, 0.83f, 0.78f);
+    drawUiCenteredText(cfg::LOGICAL_W * 0.5f, cfg::LOGICAL_H * 0.5f - 18.0f,
+                        "press P to resume", GLUT_BITMAP_HELVETICA_12);
+}
+
 static void onDisplay() {
-    glClear(GL_COLOR_BUFFER_BIT);   // ignores the viewport: repaints letterbox bars too
+    glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
 
     if (gState.mode() == Mode::Menu) {
         gMenu.draw();
     } else {
         gBackground.draw();
-        gBirds.draw();     // behind the gameplay elements, in front of the sky
+        gBirds.draw();
+        gMonkey.draw();
         gDino.draw();
         gObstacle.draw();
         gPoints.draw();
         gDragon.draw();
         gScore.draw();
+
+        if (gState.isPaused())
+            drawPauseOverlay();
     }
 
     if (gWantShot) {
         gWantShot = false;
         saveScreenshotBMP("dino_screenshot.bmp");
     }
-    if (gShotPath && ++gShotFrame >= 3) {   // let the first frames settle
+    if (gShotPath && ++gShotFrame >= 3) {
         std::exit(saveScreenshotBMP(gShotPath) ? 0 : 1);
     }
-    glutSwapBuffers();   // GLUT_DOUBLE: glFlush alone shows nothing
+    glutSwapBuffers();
 }
 
 static void onReshape(int w, int h) {
     if (h <= 0) h = 1;
-    // Letterbox: fit the fixed 2.5:1 logical space into the window without
-    // ever stretching the art. Primitives are clipped to the viewport, and
-    // glClear paints the bars black each frame — no extra quads needed.
     float windowAspect = (float)w / (float)h;
     int vpX = 0, vpY = 0, vpW = w, vpH = h;
-    if (windowAspect > cfg::TARGET_ASPECT) {          // too wide -> pillarbox
+    if (windowAspect > cfg::TARGET_ASPECT) {
         vpW = (int)((float)h * cfg::TARGET_ASPECT);
         vpX = (w - vpW) / 2;
-    } else {                                          // too tall -> letterbox
+    } else {
         vpH = (int)((float)w / cfg::TARGET_ASPECT);
         vpY = (h - vpH) / 2;
     }
     glViewport(vpX, vpY, vpW, vpH);
-    gVpX = vpX; gVpY = vpY; gVpW = vpW; gVpH = vpH;   // for mouse mapping
+    gVpX = vpX; gVpY = vpY; gVpW = vpW; gVpH = vpH;
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -173,31 +191,29 @@ static void onReshape(int w, int h) {
     glLoadIdentity();
 }
 
-static void onTimer(int /*value*/) {
+static void onTimer(int) {
     int now = glutGet(GLUT_ELAPSED_TIME);
     float dt = (float)(now - gPrevTimeMs) / 1000.0f;
     gPrevTimeMs = now;
-    // macOS stalls the loop while the window is dragged/resized; clamp dt so
-    // the world doesn't teleport when it resumes.
     if (dt > cfg::MAX_DT) dt = cfg::MAX_DT;
 
-    if (gState.mode() == Mode::Playing) {   // the world stands still on the menu
-        stepWorld(dt);
+    if (gState.mode() == Mode::Playing) {
+        if (!gState.isPaused()) stepWorld(dt);
     } else {
-        gMenu.update(dt);         // drives the selected card's pulse
+        gMenu.update(dt);
     }
 
     glutPostRedisplay();
-    glutTimerFunc(cfg::FRAME_MS, onTimer, 0);   // one-shot timer: must re-register
+    glutTimerFunc(cfg::FRAME_MS, onTimer, 0);
 }
 
-// Menu selection: switch to the chosen world and reset the run.
 static void startGame(Theme theme) {
-    gState.init();               // fresh speed, lives, day/night clock
+    gState.init();
     gState.setTheme(theme);
     gState.setMode(Mode::Playing);
     gBackground.setTheme(theme);
     gBirds.init();
+    gMonkey.init();
     gObstacle.init();
     gScore.init();
     gDino.init();
@@ -208,19 +224,14 @@ static void startGame(Theme theme) {
 static void onKeyDown(unsigned char key, int x, int y) {
     gInput.onKeyDown(key, x, y);
 
-    if (key == 27)   // ESC — Apple GLUT's glutMainLoop never returns; exit here
+    if (key == 27)
         std::exit(0);
-
-    if (key == 'p' || key == 'P') {   // debug: dump the next frame to a BMP
-        gWantShot = true;
-        return;
-    }
 
     if (gState.mode() == Mode::Menu) {
         switch (key) {
             case '1': case 'd': case 'D': startGame(Theme::Desert); break;
             case '2': case 'j': case 'J': startGame(Theme::Jungle); break;
-            case 13: case ' ':            // ENTER / SPACE start the highlighted card
+            case 13: case ' ':
                 startGame(gMenu.selectedTheme());
                 break;
             default: break;
@@ -228,14 +239,22 @@ static void onKeyDown(unsigned char key, int x, int y) {
         return;
     }
 
+    if (key == 'p' || key == 'P') {
+        gState.togglePause();
+        return;
+    }
+
+    if (gState.isPaused())
+        return;
+
     switch (key) {
-        case '+': case '=':   // temporary speed test keys
+        case '+': case '=':
             gState.adjustSpeed(+cfg::SPEED_STEP);
             break;
         case '-': case '_':
             gState.adjustSpeed(-cfg::SPEED_STEP);
             break;
-        case 'b': case 'B':   // back to the world-select menu
+        case 'b': case 'B':
             gState.setMode(Mode::Menu);
             break;
         default:
@@ -250,13 +269,17 @@ static void onKeyUp(unsigned char key, int x, int y) {
 static void onSpecial(int key, int x, int y) {
     gInput.onSpecialDown(key, x, y);
 
+    if (key == GLUT_KEY_F12) {
+        gWantShot = true;
+        return;
+    }
+
     if (gState.mode() == Mode::Menu) {
         if (key == GLUT_KEY_LEFT)  gMenu.moveSelection(-1);
         if (key == GLUT_KEY_RIGHT) gMenu.moveSelection(+1);
     }
 }
 
-// Menu mouse support: hovering highlights a world card, clicking starts it.
 static void onMouse(int button, int state, int mx, int my) {
     if (gState.mode() != Mode::Menu) return;
     if (button != GLUT_LEFT_BUTTON || state != GLUT_DOWN) return;
@@ -276,7 +299,7 @@ static void onPassiveMotion(int mx, int my) {
 }
 
 int main(int argc, char** argv) {
-    glutInit(&argc, argv);   // real argc/argv; must run on the main thread
+    glutInit(&argc, argv);
 
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--shot") == 0 && i + 1 < argc) {
@@ -286,8 +309,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Size the window to ~70% of the screen width at the art's 2.5:1 aspect,
-    // centered. Screen metrics are valid only after glutInit.
     int sw = glutGet(GLUT_SCREEN_WIDTH);
     int sh = glutGet(GLUT_SCREEN_HEIGHT);
     if (sw <= 0 || sh <= 0) { sw = 1440; sh = 900; }
@@ -297,9 +318,9 @@ int main(int argc, char** argv) {
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowSize(winW, winH);
     glutInitWindowPosition((sw - winW) / 2, (sh - winH) / 2);
-    glutCreateWindow("Dino Sprint");   // GL context exists only from here on
+    glutCreateWindow("Dino Sprint");
 
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);   // black letterbox bars
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glDisable(GL_DEPTH_TEST);
 
     gState.init();
@@ -307,6 +328,7 @@ int main(int argc, char** argv) {
     gBackground.init();
     gMenu.init();
     gBirds.init();
+    gMonkey.init();
     gDino.init();
     gObstacle.init();
     gPoints.init();
@@ -320,15 +342,12 @@ int main(int argc, char** argv) {
     glutSpecialFunc(onSpecial);
     glutMouseFunc(onMouse);
     glutPassiveMotionFunc(onPassiveMotion);
-    glutIgnoreKeyRepeat(1);   // clean held-key semantics for the future jump
+    glutIgnoreKeyRepeat(1);
 
-    if (gShotPath) {   // jump straight into the requested state for the shot
+    if (gShotPath) {
         if (std::strcmp(gShotWorld, "desert") == 0) startGame(Theme::Desert);
         else if (std::strcmp(gShotWorld, "jungle") == 0) startGame(Theme::Jungle);
-        // "menu" (default): stay on the world-select screen
         if (gState.mode() == Mode::Playing) {
-            // Fast-forward so the shot shows a mid-run scene (obstacles are
-            // on screen, the scroll has moved) instead of the spawn instant.
             for (float s = 0.0f; s < gShotWarmup; s += 1.0f / 60.0f)
                 stepWorld(1.0f / 60.0f);
         }
@@ -337,6 +356,6 @@ int main(int argc, char** argv) {
     gPrevTimeMs = glutGet(GLUT_ELAPSED_TIME);
     glutTimerFunc(cfg::FRAME_MS, onTimer, 0);
 
-    glutMainLoop();   // never returns on Apple GLUT
+    glutMainLoop();
     return 0;
 }

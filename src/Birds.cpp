@@ -16,7 +16,7 @@ static float frand(float lo, float hi) {
 }
 
 void Birds::init() {
-    std::srand(42);   // fixed seed: deterministic flock, no time() dependency
+    std::srand(42);
     for (int i = 0; i < COUNT; ++i) {
         respawn(m_birds[i], frand(50.0f, cfg::LOGICAL_W - 50.0f));
     }
@@ -33,15 +33,10 @@ void Birds::respawn(Bird& b, float x) {
 }
 
 void Birds::update(float dt, GameState& state) {
-    // Birds roost at night: fade out with dusk, return with the sunrise.
-    // Under the jungle canopy no open sky is visible, so no birds at all —
-    // the same rationale as that theme's missing sun, moon, and stars.
     m_visibility = (state.theme() == Theme::Jungle)
                        ? 0.0f
                        : 1.0f - state.darkness();
 
-    // Half the far-layer scroll speed: birds read as deep sky, farther than
-    // the rocks, while their own flight keeps them from moving in lockstep.
     const float drift = cfg::BASE_SCROLL_SPEED * 0.5f * state.speedMultiplier();
     for (int i = 0; i < COUNT; ++i) {
         Bird& b = m_birds[i];
@@ -55,10 +50,8 @@ void Birds::update(float dt, GameState& state) {
 }
 
 void Birds::draw() const {
-    if (m_visibility < 0.02f) return;   // gone for the night
+    if (m_visibility < 0.02f) return;
 
-    // Dark silhouettes like the photo's painted birds. Wings are two thin
-    // triangles whose tips swing with the flap phase (front-view V shape).
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glColor4f(0.30f, 0.23f, 0.18f, m_visibility);
@@ -67,11 +60,9 @@ void Birds::draw() const {
         const Bird& b = m_birds[i];
         float y    = b.baseY + 5.0f * std::sin(b.bobPhase);
         float flap = 0.45f * b.span * std::sin(b.flapPhase);
-        // left wing
         glVertex2f(b.x, y - 1.2f);
         glVertex2f(b.x, y + 1.2f);
         glVertex2f(b.x - b.span, y + flap + 1.0f);
-        // right wing
         glVertex2f(b.x, y - 1.2f);
         glVertex2f(b.x, y + 1.2f);
         glVertex2f(b.x + b.span, y + flap + 1.0f);

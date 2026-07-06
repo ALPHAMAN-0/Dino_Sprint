@@ -3,8 +3,6 @@
 
 class GameState;
 
-// Collectible +/- point pickups. On collection they call
-// state.adjustSpeed(+/-) — positive points boost pace, negative slow it.
 class PointsItem {
 public:
     void init();
@@ -12,4 +10,4 @@ public:
     void draw() const;
 };
 
-#endif // POINTSITEM_H
+#endif

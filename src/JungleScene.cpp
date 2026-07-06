@@ -10,9 +10,6 @@
 
 #include <cmath>
 
-// ---- local drawing helpers ------------------------------------------------
-// The current day/night tint; set once per draw call so every color helper
-// dims automatically instead of threading a parameter through 40 calls.
 static float sT = 1.0f;
 
 static void C3(float r, float g, float b) { glColor3f(r * sT, g * sT, b * sT); }
@@ -35,8 +32,6 @@ static void disc(float cx, float cy, float r) {
     glEnd();
 }
 
-// Visible wrap copies of a world-anchored element: calls draw(screenX) for
-// each copy of worldX that can be on screen given the wrapped scroll base.
 template <typename F>
 static void forCopies(float worldX, float base, float margin, F draw) {
     for (int k = -1; k <= 1; ++k) {
@@ -45,10 +40,7 @@ static void forCopies(float worldX, float base, float margin, F draw) {
     }
 }
 
-// ---- far layer ------------------------------------------------------------
-
 static void skyGradient() {
-    // Misty teal: dark near the grass, brightest mid-height, canopy-dark top.
     struct Stop { float y, r, g, b; };
     static const Stop stops[] = {
         {  80.0f, 0.18f, 0.36f, 0.33f },
@@ -71,7 +63,6 @@ static void skyGradient() {
 }
 
 static void trunk(float sx, int i) {
-    // One hazy distant trunk: a tapered column, sometimes with a branch stub.
     const float w    = su::hf(i, 1, 12.0f, 30.0f);
     const float lean = su::hf(i, 2, -14.0f, 14.0f);
     const bool  dark = su::hf(i, 3, 0.0f, 1.0f) > 0.5f;
@@ -95,10 +86,7 @@ static void trunk(float sx, int i) {
 }
 
 static void godRay(float sx, int i) {
-    // Near-vertical light shaft, fading to nothing toward the ground.
     const float w = su::hf(i, 10, 40.0f, 70.0f);
-    // The first three rays sit by the world-x~170 mist glow: brighter. Keyed
-    // on the ray's identity, not its scrolled screen position.
     const float a = (i < 3 ? 0.22f : 0.14f);
     const float drift = su::hf(i, 11, -14.0f, 14.0f);
     glBegin(GL_QUADS);
@@ -121,7 +109,7 @@ static void mossRock(float sx, int i) {
         glVertex2f(sx + w * 0.86f, 112.0f + h);
         glVertex2f(sx + w * 0.12f, 112.0f + h * 0.82f);
     glEnd();
-    C3(0.61f, 0.75f, 0.25f);   // moss cap
+    C3(0.61f, 0.75f, 0.25f);
     glBegin(GL_QUADS);
         glVertex2f(sx + w * 0.12f, 112.0f + h * 0.82f);
         glVertex2f(sx + w * 0.86f, 112.0f + h);
@@ -140,8 +128,8 @@ static void tombstone(float sx, int i) {
         glVertex2f(sx + w - 3.0f, 112.0f + h);
         glVertex2f(sx + 3.0f, 112.0f + h);
     glEnd();
-    disc(sx + w * 0.5f, 112.0f + h, w * 0.5f - 3.0f);   // rounded top
-    C3(0.35f, 0.41f, 0.37f);                             // scratch marks
+    disc(sx + w * 0.5f, 112.0f + h, w * 0.5f - 3.0f);
+    C3(0.35f, 0.41f, 0.37f);
     glBegin(GL_QUADS);
     for (int s = 0; s < 3; ++s) {
         float mx = sx + w * 0.30f + (float)s * w * 0.16f;
@@ -154,8 +142,6 @@ static void tombstone(float sx, int i) {
 }
 
 static void vine(float sx, int i) {
-    // A hanging vine: chained thin quads along a gentle curve, with
-    // drooping leaf pairs.
     const float len  = su::hf(i, 25, 90.0f, 260.0f);
     const float sway = su::hf(i, 26, -24.0f, 24.0f);
     const int   segs = 6;
@@ -181,9 +167,7 @@ static void vine(float sx, int i) {
     glEnd();
 }
 
-// The landmark: a giant faceted tree with buttress roots and mossy platforms.
 static void bigTree(float tx) {
-    // trunk in three stacked quads (upper column, lower flare, base spread)
     C3(0.486f, 0.384f, 0.267f);
     glBegin(GL_QUADS);
         glVertex2f(tx - 46, 400); glVertex2f(tx + 52, 400);
@@ -195,7 +179,6 @@ static void bigTree(float tx) {
         glVertex2f(tx - 96, 112); glVertex2f(tx + 108, 108);
         glVertex2f(tx + 128, 92); glVertex2f(tx - 118, 92);
     glEnd();
-    // buttress roots stepping outward
     C3(0.424f, 0.318f, 0.212f);
     glBegin(GL_TRIANGLES);
         glVertex2f(tx - 80, 150); glVertex2f(tx - 230, 90); glVertex2f(tx - 96, 92);
@@ -205,7 +188,6 @@ static void bigTree(float tx) {
     glBegin(GL_TRIANGLES);
         glVertex2f(tx + 84, 160); glVertex2f(tx + 250, 90); glVertex2f(tx + 108, 92);
     glEnd();
-    // facets: lit plane toward the glow, shaded plane on the right
     C3(0.576f, 0.463f, 0.310f);
     glBegin(GL_QUADS);
         glVertex2f(tx - 54, 210); glVertex2f(tx - 46, 400);
@@ -223,7 +205,6 @@ static void bigTree(float tx) {
         glVertex2f(tx + 30, 220); glVertex2f(tx + 62, 200); glVertex2f(tx + 108, 108);
         glVertex2f(tx + 30, 220); glVertex2f(tx + 108, 108); glVertex2f(tx + 52, 108);
     glEnd();
-    // mid bark patch + light base band
     C3(0.517f, 0.404f, 0.286f);
     glBegin(GL_QUADS);
         glVertex2f(tx - 24, 330); glVertex2f(tx + 12, 340);
@@ -234,7 +215,6 @@ static void bigTree(float tx) {
         glVertex2f(tx - 40, 150); glVertex2f(tx + 30, 145);
         glVertex2f(tx + 60, 108); glVertex2f(tx - 60, 108);
     glEnd();
-    // faint teal ambient sheen (alpha needs its own blend pass here)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     C4(0.369f, 0.561f, 0.510f, 0.18f);
@@ -243,23 +223,22 @@ static void bigTree(float tx) {
         glVertex2f(tx + 24, 260); glVertex2f(tx - 30, 255);
     glEnd();
     glDisable(GL_BLEND);
-    // mossy platforms jutting from the left edge
     static const struct { float xr, y, w; } plats[] = {
         { -40.0f, 230.0f, 96.0f }, { -32.0f, 300.0f, 88.0f }, { -26.0f, 362.0f, 80.0f },
     };
     for (const auto& p : plats) {
         const float xr = tx + p.xr, y = p.y, w = p.w;
-        C3(0.424f, 0.318f, 0.212f);   // underside wedge
+        C3(0.424f, 0.318f, 0.212f);
         glBegin(GL_QUADS);
             glVertex2f(xr, y - 4); glVertex2f(xr, y - 22);
             glVertex2f(xr - w * 0.8f, y - 18); glVertex2f(xr - w, y - 9);
         glEnd();
-        C3(0.612f, 0.745f, 0.247f);   // moss plate
+        C3(0.612f, 0.745f, 0.247f);
         glBegin(GL_QUADS);
             glVertex2f(xr, y - 4); glVertex2f(xr - w, y - 9);
             glVertex2f(xr - w, y - 2); glVertex2f(xr, y + 5);
         glEnd();
-        C3(0.706f, 0.839f, 0.310f);   // bright lip
+        C3(0.706f, 0.839f, 0.310f);
         glBegin(GL_QUADS);
             glVertex2f(xr - w * 0.3f, y - 6); glVertex2f(xr - w, y - 9);
             glVertex2f(xr - w, y - 2); glVertex2f(xr - w * 0.3f, y - 1);
@@ -276,7 +255,6 @@ void JungleScene::drawFar(float scroll, float tint) const {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // mist glow where the light comes through (scrolls with the far layer)
     forCopies(170.0f, base, 400.0f, [](float sx) {
         C4(0.87f, 0.96f, 0.91f, 0.10f); disc(sx, 350.0f, 300.0f);
         C4(0.87f, 0.96f, 0.91f, 0.12f); disc(sx, 350.0f, 190.0f);
@@ -293,7 +271,6 @@ void JungleScene::drawFar(float scroll, float tint) const {
 
     glDisable(GL_BLEND);
 
-    // distant vegetation bumps behind the grass line (two rows)
     const float segW = 100.0f;
     const int perPeriod = (int)(cfg::SCENE_PERIOD / segW);
     glBegin(GL_QUADS);
@@ -313,11 +290,9 @@ void JungleScene::drawFar(float scroll, float tint) const {
     }
     glEnd();
 
-    // grass band with a lit top strip
     C3(0.31f, 0.49f, 0.17f); quad(0.0f, 80.0f, cfg::LOGICAL_W, 115.0f);
     C3(0.56f, 0.73f, 0.24f); quad(0.0f, 108.0f, cfg::LOGICAL_W, 115.0f);
 
-    // landmarks: moss rocks, tombstone clearing, the giant tree
     static const float rockX[] = { 150, 900, 1600 };
     for (int i = 0; i < 3; ++i)
         forCopies(rockX[i], base, 120.0f, [i](float sx) { mossRock(sx, i); });
@@ -326,15 +301,11 @@ void JungleScene::drawFar(float scroll, float tint) const {
         forCopies(tombX[i], base, 80.0f, [i](float sx) { tombstone(sx, i); });
     forCopies(500.0f, base, 300.0f, [](float sx) { bigTree(sx); });
 
-    // dark grass tufts + tiny white flowers along the grass line
-    // (segment widths must divide SCENE_PERIOD so the pattern tiles cleanly)
     const float tuftW = 125.0f;
     const int tuftsPer = (int)(cfg::SCENE_PERIOD / tuftW);
     C3(0.09f, 0.20f, 0.12f);
     glBegin(GL_TRIANGLES);
     {
-        // start one segment early: a tuft can overhang its segment's right
-        // edge, and segment i0-1's overhang is still on screen at the left
         int i0 = (int)std::floor(base / tuftW) - 1;
         for (int i = i0; i <= i0 + (int)(cfg::LOGICAL_W / tuftW) + 2; ++i) {
             int id = ((i % tuftsPer) + tuftsPer) % tuftsPer;
@@ -366,12 +337,10 @@ void JungleScene::drawFar(float scroll, float tint) const {
     }
     glEnd();
 
-    // hanging vines (in front of the tree, like the reference art)
     static const float vineX[] = { 120, 255, 400, 700, 835, 950, 1650, 1820 };
     for (int i = 0; i < (int)(sizeof(vineX) / sizeof(vineX[0])); ++i)
         forCopies(vineX[i], base, 60.0f, [i](float sx) { vine(sx, i); });
 
-    // canopy: dark band along the top with an uneven lower edge + leaf fringe
     const float canW = 200.0f;
     const int canPer = (int)(cfg::SCENE_PERIOD / canW);
     C3(0.043f, 0.129f, 0.118f);
@@ -390,7 +359,7 @@ void JungleScene::drawFar(float scroll, float tint) const {
     glEnd();
     glBegin(GL_TRIANGLES);
     {
-        int i0 = (int)std::floor(base / canW) - 1;   // fringe overhangs: start early
+        int i0 = (int)std::floor(base / canW) - 1;
         for (int i = i0; i <= i0 + (int)(cfg::LOGICAL_W / canW) + 2; ++i) {
             int id = ((i % canPer) + canPer) % canPer;
             for (int fzz = 0; fzz < 2; ++fzz) {
@@ -406,16 +375,13 @@ void JungleScene::drawFar(float scroll, float tint) const {
     glEnd();
 }
 
-// ---- near layer -----------------------------------------------------------
-
 void JungleScene::drawNear(float scroll, float tint) const {
     sT = tint;
     const float base = su::wrapScroll(scroll, cfg::SCENE_PERIOD);
 
-    // solid undergrowth silhouette with an uneven top edge
     C3(0.039f, 0.082f, 0.071f);
     quad(0.0f, 0.0f, cfg::LOGICAL_W, 84.0f);
-    const float segW = 100.0f;   // divides SCENE_PERIOD: the pattern tiles cleanly
+    const float segW = 100.0f;
     const int perPeriod = (int)(cfg::SCENE_PERIOD / segW);
     glBegin(GL_QUADS);
     {
@@ -431,7 +397,6 @@ void JungleScene::drawNear(float scroll, float tint) const {
     }
     glEnd();
 
-    // blocky ruin silhouettes poking above the band
     static const float ruinX[] = { 430, 720, 1450 };
     for (int i = 0; i < 3; ++i) {
         forCopies(ruinX[i], base, 100.0f, [i](float sx) {
@@ -446,14 +411,13 @@ void JungleScene::drawNear(float scroll, float tint) const {
         });
     }
 
-    // cool blue-grey rock strip along the very bottom
     C3(0.106f, 0.157f, 0.192f);
     quad(0.0f, 0.0f, cfg::LOGICAL_W, 22.0f);
     const float rw = 125.0f;
     const int rper = (int)(cfg::SCENE_PERIOD / rw);
     glBegin(GL_QUADS);
     {
-        int i0 = (int)std::floor(base / rw) - 1;   // rocks overhang: start early
+        int i0 = (int)std::floor(base / rw) - 1;
         for (int i = i0; i <= i0 + (int)(cfg::LOGICAL_W / rw) + 2; ++i) {
             int id = ((i % rper) + rper) % rper;
             if (su::hf(id, 62, 0.0f, 1.0f) > 0.5f) C3(0.173f, 0.259f, 0.314f);
