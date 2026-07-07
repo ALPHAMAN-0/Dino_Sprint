@@ -17,6 +17,11 @@ private:
         float swingPhase = 0.0f;
         float swingRate = 1.4f;
         float swingAmp = 0.5f;
+        float tailPhase1 = 0.0f;
+        float tailRate1 = 1.0f;
+        float tailPhase2 = 0.0f;
+        float tailRate2 = 1.0f;
+        float tailBias = 0.0f;
     };
 
     static const int COUNT = 4;
