@@ -118,27 +118,151 @@ static void mossRock(float sx, int i) {
     glEnd();
 }
 
-static void tombstone(float sx, int i) {
-    const float w = su::hf(i, 20, 40.0f, 50.0f);
-    const float h = su::hf(i, 21, 48.0f, 60.0f);
-    C3(0.55f, 0.63f, 0.58f);
-    glBegin(GL_QUADS);
-        glVertex2f(sx + 2.0f, 112.0f);
-        glVertex2f(sx + w - 2.0f, 112.0f);
-        glVertex2f(sx + w - 3.0f, 112.0f + h);
-        glVertex2f(sx + 3.0f, 112.0f + h);
-    glEnd();
-    disc(sx + w * 0.5f, 112.0f + h, w * 0.5f - 3.0f);
-    C3(0.35f, 0.41f, 0.37f);
-    glBegin(GL_QUADS);
-    for (int s = 0; s < 3; ++s) {
-        float mx = sx + w * 0.30f + (float)s * w * 0.16f;
-        glVertex2f(mx, 122.0f);
-        glVertex2f(mx + 2.0f, 122.0f);
-        glVertex2f(mx + 5.0f, 122.0f + h * 0.45f);
-        glVertex2f(mx + 3.0f, 122.0f + h * 0.45f);
+static void ellipse(float cx, float cy, float rx, float ry) {
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(cx, cy);
+    for (int i = 0; i <= 24; ++i) {
+        float a = (float)i * (2.0f * 3.14159265f / 24.0f);
+        glVertex2f(cx + rx * std::cos(a), cy + ry * std::sin(a));
     }
     glEnd();
+}
+
+// Draw centered GLUT stroke text. GLUT_STROKE_ROMAN scales with the modelview,
+// so engravings stay crisp under the scene / menu-preview scaling (unlike the
+// fixed-size bitmap fonts used for the HUD).
+static void strokeText(const char* s, float cx, float baseY, float targetW, float lineW) {
+    int len = 0;
+    for (const char* p = s; *p; ++p)
+        len += glutStrokeWidth(GLUT_STROKE_ROMAN, (unsigned char)*p);
+    if (len <= 0) return;
+    const float scale = targetW / (float)len;
+    glLineWidth(lineW);
+    glPushMatrix();
+        glTranslatef(cx - targetW * 0.5f, baseY, 0.0f);
+        glScalef(scale, scale, 1.0f);
+        for (const char* p = s; *p; ++p)
+            glutStrokeCharacter(GLUT_STROKE_ROMAN, (unsigned char)*p);
+    glPopMatrix();
+    glLineWidth(1.0f);
+}
+
+// Chiselled / incised look: a pale highlight offset down-right (light catching
+// the lower lip of the groove) with the dark cut painted on top.
+static void carveText(const char* s, float cx, float baseY, float targetW) {
+    C3(0.74f, 0.77f, 0.75f);
+    strokeText(s, cx + 0.7f, baseY - 0.7f, targetW, 1.3f);
+    C3(0.17f, 0.20f, 0.19f);
+    strokeText(s, cx, baseY, targetW, 1.7f);
+}
+
+static void carveCross(float cx, float cy, float s) {
+    C3(0.74f, 0.77f, 0.75f);
+    quad(cx - s * 0.15f + 0.7f, cy - s - 0.7f, cx + s * 0.15f + 0.7f, cy + s * 0.9f - 0.7f);
+    quad(cx - s * 0.5f  + 0.7f, cy + s * 0.18f - 0.7f, cx + s * 0.5f + 0.7f, cy + s * 0.46f - 0.7f);
+    C3(0.17f, 0.20f, 0.19f);
+    quad(cx - s * 0.15f, cy - s, cx + s * 0.15f, cy + s * 0.9f);
+    quad(cx - s * 0.5f,  cy + s * 0.18f, cx + s * 0.5f, cy + s * 0.46f);
+}
+
+static void tombstone(float sx, int i) {
+    const float w     = su::hf(i, 20, 56.0f, 66.0f);
+    const float H     = su::hf(i, 21, 66.0f, 78.0f);   // rectangular body height
+    const float tilt  = su::hf(i, 22, -3.5f, 1.5f);    // old graves lean a little
+    const float xc    = sx + w * 0.5f;
+    const float gy    = 111.0f;                         // ground contact line
+    const float hw    = w * 0.5f;
+    const float domeR = hw;
+    const char* name  = (i == 0) ? "SIAM"        : "ROSHNI";
+    const char* dates = (i == 0) ? "1998 - 2026" : "2000 - 2026";
+
+    // Soft ground shadow (drawn untilted, in world space so it stays flat).
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    C4(0.0f, 0.0f, 0.0f, 0.30f);
+    ellipse(xc + 7.0f, gy + 1.0f, hw + 14.0f, 6.0f);
+    glDisable(GL_BLEND);
+
+    glPushMatrix();
+    glTranslatef(xc, gy, 0.0f);
+    glRotatef(tilt, 0.0f, 0.0f, 1.0f);   // everything below is in local stone space
+
+    const float sy  = 15.0f;             // slab bottom (above the plinth)
+    const float top = sy + H;            // top of the rectangular body; dome above
+
+    // Fresh grave dirt mound heaped at the base.
+    C3(0.20f, 0.16f, 0.12f);
+    glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(0.0f, 7.0f);
+        glVertex2f(-hw - 15.0f, 0.0f);
+        glVertex2f(-hw - 6.0f,  6.0f);
+        glVertex2f(0.0f,        9.0f);
+        glVertex2f( hw + 6.0f,  6.0f);
+        glVertex2f( hw + 15.0f, 0.0f);
+    glEnd();
+
+    // Two-tier base plinth (with a dark contact shadow between tiers).
+    C3(0.36f, 0.40f, 0.39f); quad(-hw - 9.0f, 0.0f, hw + 9.0f, 9.0f);
+    C3(0.30f, 0.34f, 0.33f); quad(-hw - 9.0f, 8.0f, hw + 9.0f, 9.5f);
+    C3(0.46f, 0.50f, 0.49f); quad(-hw - 4.0f, 9.0f, hw + 4.0f, sy);
+
+    // Slab body: left-lit vertical gradient so the stone reads as 3D.
+    glBegin(GL_QUADS);
+        glColor3f(0.66f * sT, 0.69f * sT, 0.67f * sT); glVertex2f(-hw, sy);
+        glColor3f(0.47f * sT, 0.51f * sT, 0.50f * sT); glVertex2f( hw, sy);
+        glColor3f(0.49f * sT, 0.53f * sT, 0.52f * sT); glVertex2f( hw, top);
+        glColor3f(0.68f * sT, 0.71f * sT, 0.69f * sT); glVertex2f(-hw, top);
+    glEnd();
+
+    // Rounded dome top: brighter on the left, shaded on the right.
+    glBegin(GL_TRIANGLE_FAN);
+        glColor3f(0.60f * sT, 0.64f * sT, 0.62f * sT); glVertex2f(0.0f, top);
+        for (int k = 0; k <= 22; ++k) {
+            float a  = 3.14159265f * (float)k / 22.0f;   // 0..pi, right -> left
+            float ca = std::cos(a);
+            float sh = 0.58f - 0.12f * ca;               // ca>0 (right) -> darker
+            glColor3f(sh * sT, (sh + 0.04f) * sT, (sh + 0.02f) * sT);
+            glVertex2f(ca * domeR, top + std::sin(a) * domeR);
+        }
+    glEnd();
+
+    // Recessed engraving panel: dark rim + mid-tone inner face.
+    C3(0.34f, 0.38f, 0.37f); quad(-hw + 6.0f, sy + 7.0f, hw - 6.0f, top + domeR * 0.32f);
+    C3(0.52f, 0.56f, 0.55f); quad(-hw + 8.0f, sy + 9.0f, hw - 8.0f, top + domeR * 0.22f);
+
+    // Carved epitaph: cross, R.I.P., name (#0 SIAM / #1 ROSHNI), then dates.
+    carveCross(0.0f, top - 7.0f, 7.0f);
+    carveText("R.I.P.", 0.0f, top - 24.0f,               w * 0.44f);
+    carveText(name,     0.0f, sy + (top - sy) * 0.42f,   w * 0.60f);
+    carveText(dates,    0.0f, sy + (top - sy) * 0.17f,   w * 0.58f);
+
+    // Weathering cracks.
+    C3(0.30f, 0.34f, 0.33f);
+    glLineWidth(1.0f);
+    glBegin(GL_LINE_STRIP);
+        glVertex2f(-hw + 3.0f,  top - 4.0f);
+        glVertex2f(-hw + 9.0f,  top - 20.0f);
+        glVertex2f(-hw + 6.0f,  top - 34.0f);
+        glVertex2f(-hw + 12.0f, top - 46.0f);
+    glEnd();
+    glBegin(GL_LINE_STRIP);
+        glVertex2f(hw - 4.0f, sy + 6.0f);
+        glVertex2f(hw - 9.0f, sy + 18.0f);
+        glVertex2f(hw - 5.0f, sy + 30.0f);
+    glEnd();
+
+    // Moss creeping up from the base.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    C4(0.24f, 0.40f, 0.16f, 0.75f);
+    disc(-hw + 5.0f,  sy + 4.0f,  6.0f);
+    disc(-hw + 12.0f, sy + 10.0f, 3.5f);
+    disc( hw - 7.0f,  sy + 2.0f,  4.5f);
+    C4(0.32f, 0.48f, 0.20f, 0.60f);
+    disc(-hw + 8.0f,  sy + 7.0f,  2.5f);
+    glDisable(GL_BLEND);
+
+    glPopMatrix();
 }
 
 static void vine(float sx, int i) {
