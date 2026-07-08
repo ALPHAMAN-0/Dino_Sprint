@@ -1,6 +1,8 @@
-# build outputs
+# build outputs (sources live in src/ subfolders, so match any depth)
 src/*.o
 src/*.d
+src/**/*.o
+src/**/*.d
 /dino_sprint
 
 # debug screenshots (P key)
