@@ -88,6 +88,8 @@
 		<Unit filename="src/Birds.cpp" />
 		<Unit filename="src/Dino.h" />
 		<Unit filename="src/Dino.cpp" />
+		<Unit filename="src/Roshni.h" />
+		<Unit filename="src/Roshni.cpp" />
 		<Unit filename="src/Menu.h" />
 		<Unit filename="src/Menu.cpp" />
 		<Unit filename="src/SceneUtil.h" />

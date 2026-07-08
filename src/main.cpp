@@ -17,6 +17,7 @@
 #include "Birds.h"
 #include "Monkey.h"
 #include "Dino.h"
+#include "Roshni.h"
 #include "Menu.h"
 #include "Obstacle.h"
 #include "PointsItem.h"
@@ -29,6 +30,7 @@ static Background   gBackground;
 static Birds        gBirds;
 static Monkey       gMonkey;
 static Dino         gDino;
+static Roshni       gRoshni;
 static Menu         gMenu;
 static Obstacle     gObstacle;
 static PointsItem   gPoints;
@@ -43,6 +45,15 @@ static const char* gShotPath   = nullptr;
 static const char* gShotWorld  = "menu";
 static float       gShotWarmup = 0.0f;
 static int         gShotFrame  = 0;
+
+// ESC options menu (in-game pause with actions)
+static bool        gOptions = false;
+static int         gOptSel  = 0;
+static const char* kOptions[] = { "Resume", "Reset", "Change Map", "Quit" };
+static const int   OPT_COUNT = 4;
+static const float OPT_CX  = cfg::LOGICAL_W * 0.5f;
+static const float OPT_TOP = 208.0f;
+static const float OPT_DY  = 34.0f;
 
 static bool windowToLogical(int mx, int my, float& lx, float& ly) {
     lx = (float)(mx - gVpX) * cfg::LOGICAL_W / (float)gVpW;
@@ -103,6 +114,7 @@ static void stepWorld(float dt) {
     gBirds.update(dt, gState);
     gMonkey.update(dt, gState);
     gDino.update(dt, gState);
+    gRoshni.update(dt, gState);
     gObstacle.update(dt, gState);
     gPoints.update(dt, gState);
     gDragon.update(dt, gState);
@@ -140,6 +152,76 @@ static void drawPauseOverlay() {
                         "press P to resume", GLUT_BITMAP_HELVETICA_12);
 }
 
+static int optionAtLogical(float lx, float ly) {
+    for (int i = 0; i < OPT_COUNT; ++i) {
+        float cy = OPT_TOP - i * OPT_DY;
+        if (ly > cy - 15.0f && ly < cy + 15.0f &&
+            lx > OPT_CX - 150.0f && lx < OPT_CX + 150.0f)
+            return i;
+    }
+    return -1;
+}
+
+static void drawOptionsOverlay() {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.0f, 0.0f, 0.0f, 0.60f);              // dim the whole scene
+    glBegin(GL_QUADS);
+        glVertex2f(0.0f, 0.0f);
+        glVertex2f(cfg::LOGICAL_W, 0.0f);
+        glVertex2f(cfg::LOGICAL_W, cfg::LOGICAL_H);
+        glVertex2f(0.0f, cfg::LOGICAL_H);
+    glEnd();
+
+    const float pT = OPT_TOP + 70.0f;
+    const float pB = OPT_TOP - (OPT_COUNT - 1) * OPT_DY - 46.0f;
+    glColor4f(0.09f, 0.10f, 0.14f, 0.90f);           // panel
+    glBegin(GL_QUADS);
+        glVertex2f(OPT_CX - 180.0f, pB);
+        glVertex2f(OPT_CX + 180.0f, pB);
+        glVertex2f(OPT_CX + 180.0f, pT);
+        glVertex2f(OPT_CX - 180.0f, pT);
+    glEnd();
+    glColor4f(0.98f, 0.82f, 0.35f, 0.85f);           // panel border
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+        glVertex2f(OPT_CX - 180.0f, pB);
+        glVertex2f(OPT_CX + 180.0f, pB);
+        glVertex2f(OPT_CX + 180.0f, pT);
+        glVertex2f(OPT_CX - 180.0f, pT);
+    glEnd();
+    glLineWidth(1.0f);
+    glDisable(GL_BLEND);
+
+    glColor3f(0.98f, 0.92f, 0.65f);
+    drawUiCenteredText(OPT_CX, OPT_TOP + 44.0f, "PAUSED", GLUT_BITMAP_TIMES_ROMAN_24);
+
+    for (int i = 0; i < OPT_COUNT; ++i) {
+        const float cy = OPT_TOP - i * OPT_DY;
+        if (i == gOptSel) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glColor4f(0.98f, 0.82f, 0.25f, 0.22f);   // selection highlight
+            glBegin(GL_QUADS);
+                glVertex2f(OPT_CX - 150.0f, cy - 14.0f);
+                glVertex2f(OPT_CX + 150.0f, cy - 14.0f);
+                glVertex2f(OPT_CX + 150.0f, cy + 16.0f);
+                glVertex2f(OPT_CX - 150.0f, cy + 16.0f);
+            glEnd();
+            glDisable(GL_BLEND);
+            glColor3f(1.0f, 0.95f, 0.6f);
+        } else {
+            glColor3f(0.82f, 0.82f, 0.85f);
+        }
+        drawUiCenteredText(OPT_CX, cy - 6.0f, kOptions[i], GLUT_BITMAP_HELVETICA_18);
+    }
+
+    glColor3f(0.70f, 0.70f, 0.74f);
+    drawUiCenteredText(OPT_CX, OPT_TOP - (OPT_COUNT - 1) * OPT_DY - 30.0f,
+                       "Up/Down + Enter or click     (Esc resumes)",
+                       GLUT_BITMAP_HELVETICA_12);
+}
+
 static void onDisplay() {
     glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
@@ -150,14 +232,17 @@ static void onDisplay() {
         gBackground.draw();
         gBirds.draw();
         gMonkey.draw();
-        gDino.draw();
         gObstacle.draw();
         gPoints.draw();
+        gDino.draw();          // player in front of ground obstacles/items
+        gRoshni.draw();        // the girl running ahead, being chased
         gDragon.draw();
         gScore.draw();
 
-        if (gState.isPaused())
+        if (gState.isPaused() && !gOptions)   // options menu supersedes the plain pause overlay
             drawPauseOverlay();
+        if (gOptions)
+            drawOptionsOverlay();
     }
 
     if (gWantShot) {
@@ -198,7 +283,7 @@ static void onTimer(int) {
     if (dt > cfg::MAX_DT) dt = cfg::MAX_DT;
 
     if (gState.mode() == Mode::Playing) {
-        if (!gState.isPaused()) stepWorld(dt);
+        if (!gState.isPaused() && !gOptions) stepWorld(dt);
     } else {
         gMenu.update(dt);
     }
@@ -217,15 +302,47 @@ static void startGame(Theme theme) {
     gObstacle.init();
     gScore.init();
     gDino.init();
+    gRoshni.init();
     gPoints.init();
     gDragon.init();
+}
+
+static void activateOption(int sel) {
+    switch (sel) {
+        case 0:                                       // Resume
+            gOptions = false;
+            if (gState.isPaused()) gState.togglePause();   // also clear a prior 'P' pause
+            break;
+        case 1:                                       // Reset (same map); startGame() re-inits state
+            startGame(gState.theme());
+            gOptions = false;
+            break;
+        case 2:                                       // Change Map -> back to the picker
+            gState.setMode(Mode::Menu);
+            gOptions = false;
+            break;
+        case 3:                                       // Quit
+            std::exit(0);
+        default: break;
+    }
 }
 
 static void onKeyDown(unsigned char key, int x, int y) {
     gInput.onKeyDown(key, x, y);
 
-    if (key == 27)
-        std::exit(0);
+    // Esc: quit from the start menu, otherwise open/close the options menu.
+    if (key == 27) {
+        if (gState.mode() == Mode::Menu) {
+            std::exit(0);
+        } else if (gOptions) {                 // close = fully resume (also clears 'P' pause)
+            gOptions = false;
+            if (gState.isPaused()) gState.togglePause();
+        } else {
+            gOptions = true;
+            gOptSel  = 0;
+        }
+        return;
+    }
 
     if (gState.mode() == Mode::Menu) {
         switch (key) {
@@ -234,6 +351,21 @@ static void onKeyDown(unsigned char key, int x, int y) {
             case 13: case ' ':
                 startGame(gMenu.selectedTheme());
                 break;
+            default: break;
+        }
+        return;
+    }
+
+    // ---- Playing ----
+    if (gOptions) {                       // options menu captures all keys
+        switch (key) {
+            case 13: case ' ': activateOption(gOptSel); break;
+            case 'w': case 'W': gOptSel = (gOptSel + OPT_COUNT - 1) % OPT_COUNT; break;
+            case 's': case 'S': gOptSel = (gOptSel + 1) % OPT_COUNT; break;
+            case '1': gOptSel = 0; activateOption(0); break;
+            case '2': gOptSel = 1; activateOption(1); break;
+            case '3': gOptSel = 2; activateOption(2); break;
+            case '4': gOptSel = 3; activateOption(3); break;
             default: break;
         }
         return;
@@ -248,6 +380,9 @@ static void onKeyDown(unsigned char key, int x, int y) {
         return;
 
     switch (key) {
+        case ' ':
+            gRoshni.jump();               // Roshni leaps
+            break;
         case '+': case '=':
             gState.adjustSpeed(+cfg::SPEED_STEP);
             break;
@@ -277,17 +412,31 @@ static void onSpecial(int key, int x, int y) {
     if (gState.mode() == Mode::Menu) {
         if (key == GLUT_KEY_LEFT)  gMenu.moveSelection(-1);
         if (key == GLUT_KEY_RIGHT) gMenu.moveSelection(+1);
+        return;
+    }
+
+    if (gOptions) {
+        if (key == GLUT_KEY_UP)   gOptSel = (gOptSel + OPT_COUNT - 1) % OPT_COUNT;
+        if (key == GLUT_KEY_DOWN) gOptSel = (gOptSel + 1) % OPT_COUNT;
     }
 }
 
 static void onMouse(int button, int state, int mx, int my) {
-    if (gState.mode() != Mode::Menu) return;
     if (button != GLUT_LEFT_BUTTON || state != GLUT_DOWN) return;
     float lx, ly;
     if (!windowToLogical(mx, my, lx, ly)) return;
-    const int hit = gMenu.hitTest(lx, ly);
-    if (hit == 0) startGame(Theme::Desert);
-    if (hit == 1) startGame(Theme::Jungle);
+
+    if (gState.mode() == Mode::Menu) {
+        const int hit = gMenu.hitTest(lx, ly);
+        if (hit == 0) startGame(Theme::Desert);
+        if (hit == 1) startGame(Theme::Jungle);
+        return;
+    }
+
+    if (gOptions) {
+        const int idx = optionAtLogical(lx, ly);
+        if (idx >= 0) { gOptSel = idx; activateOption(idx); }
+    }
 }
 
 static void onPassiveMotion(int mx, int my) {
@@ -330,6 +479,7 @@ int main(int argc, char** argv) {
     gBirds.init();
     gMonkey.init();
     gDino.init();
+    gRoshni.init();
     gObstacle.init();
     gPoints.init();
     gDragon.init();
