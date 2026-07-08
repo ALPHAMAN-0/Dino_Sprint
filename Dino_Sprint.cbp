@@ -88,6 +88,8 @@
 		<Unit filename="src/core/GameState.cpp" />
 		<Unit filename="src/core/InputManager.h" />
 		<Unit filename="src/core/InputManager.cpp" />
+		<Unit filename="src/core/Intro.h" />
+		<Unit filename="src/core/Intro.cpp" />
 		<Unit filename="src/background/Background.h" />
 		<Unit filename="src/background/Background.cpp" />
 		<Unit filename="src/background/Birds.h" />
@@ -103,6 +105,8 @@
 		<Unit filename="src/characters/Dino.cpp" />
 		<Unit filename="src/characters/Roshni.h" />
 		<Unit filename="src/characters/Roshni.cpp" />
+		<Unit filename="src/characters/Siam.h" />
+		<Unit filename="src/characters/Siam.cpp" />
 		<Unit filename="src/entities/Obstacle.h" />
 		<Unit filename="src/entities/Obstacle.cpp" />
 		<Unit filename="src/entities/PointsItem.h" />

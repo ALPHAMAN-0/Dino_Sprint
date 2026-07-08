@@ -18,11 +18,13 @@
 #include "Monkey.h"
 #include "Dino.h"
 #include "Roshni.h"
+#include "Siam.h"
 #include "Menu.h"
 #include "Obstacle.h"
 #include "PointsItem.h"
 #include "Dragon.h"
 #include "Score.h"
+#include "Intro.h"
 
 static GameState    gState;
 static InputManager gInput;
@@ -31,11 +33,13 @@ static Birds        gBirds;
 static Monkey       gMonkey;
 static Dino         gDino;
 static Roshni       gRoshni;
+static Siam         gSiam;
 static Menu         gMenu;
 static Obstacle     gObstacle;
 static PointsItem   gPoints;
 static Dragon       gDragon;
 static Score        gScore;
+static Intro        gIntro;
 static int          gPrevTimeMs = 0;
 
 static int  gVpX = 0, gVpY = 0, gVpW = 1, gVpH = 1;
@@ -228,6 +232,14 @@ static void onDisplay() {
 
     if (gState.mode() == Mode::Menu) {
         gMenu.draw();
+    } else if (gState.mode() == Mode::Intro) {
+        gBackground.draw();
+        gBirds.draw();
+        gMonkey.draw();
+        gSiam.draw();          // drawn before the Dino so the jaws close over him
+        gRoshni.draw();
+        gDino.draw();
+        gIntro.draw();         // comic FX overlay (CHOMP!/AAAH!/dust/gulp); no HUD
     } else {
         gBackground.draw();
         gBirds.draw();
@@ -284,6 +296,8 @@ static void onTimer(int) {
 
     if (gState.mode() == Mode::Playing) {
         if (!gState.isPaused() && !gOptions) stepWorld(dt);
+    } else if (gState.mode() == Mode::Intro) {
+        gIntro.update(dt);
     } else {
         gMenu.update(dt);
     }
@@ -292,10 +306,9 @@ static void onTimer(int) {
     glutTimerFunc(cfg::FRAME_MS, onTimer, 0);
 }
 
-static void startGame(Theme theme) {
+static void initWorld(Theme theme) {
     gState.init();
     gState.setTheme(theme);
-    gState.setMode(Mode::Playing);
     gBackground.setTheme(theme);
     gBirds.init();
     gMonkey.init();
@@ -303,8 +316,21 @@ static void startGame(Theme theme) {
     gScore.init();
     gDino.init();
     gRoshni.init();
+    gSiam.init();
     gPoints.init();
     gDragon.init();
+}
+
+static void startGame(Theme theme) {
+    initWorld(theme);
+    gState.setMode(Mode::Playing);
+}
+
+// Fresh start from the menu: play the intro cutscene first, then gameplay.
+static void startIntro(Theme theme) {
+    initWorld(theme);
+    gState.setMode(Mode::Intro);
+    gIntro.begin(theme, gDino, gRoshni, gSiam, gBackground, gState);
 }
 
 static void activateOption(int sel) {
@@ -330,6 +356,11 @@ static void activateOption(int sel) {
 static void onKeyDown(unsigned char key, int x, int y) {
     gInput.onKeyDown(key, x, y);
 
+    if (gState.mode() == Mode::Intro) {   // any key skips the cutscene
+        gIntro.skip();
+        return;
+    }
+
     // Esc: quit from the start menu, otherwise open/close the options menu.
     if (key == 27) {
         if (gState.mode() == Mode::Menu) {
@@ -346,10 +377,10 @@ static void onKeyDown(unsigned char key, int x, int y) {
 
     if (gState.mode() == Mode::Menu) {
         switch (key) {
-            case '1': case 'd': case 'D': startGame(Theme::Desert); break;
-            case '2': case 'j': case 'J': startGame(Theme::Jungle); break;
+            case '1': case 'd': case 'D': startIntro(Theme::Desert); break;
+            case '2': case 'j': case 'J': startIntro(Theme::Jungle); break;
             case 13: case ' ':
-                startGame(gMenu.selectedTheme());
+                startIntro(gMenu.selectedTheme());
                 break;
             default: break;
         }
@@ -409,6 +440,11 @@ static void onSpecial(int key, int x, int y) {
         return;
     }
 
+    if (gState.mode() == Mode::Intro) {   // any key skips the cutscene
+        gIntro.skip();
+        return;
+    }
+
     if (gState.mode() == Mode::Menu) {
         if (key == GLUT_KEY_LEFT)  gMenu.moveSelection(-1);
         if (key == GLUT_KEY_RIGHT) gMenu.moveSelection(+1);
@@ -423,13 +459,19 @@ static void onSpecial(int key, int x, int y) {
 
 static void onMouse(int button, int state, int mx, int my) {
     if (button != GLUT_LEFT_BUTTON || state != GLUT_DOWN) return;
+
+    if (gState.mode() == Mode::Intro) {   // any click skips the cutscene
+        gIntro.skip();
+        return;
+    }
+
     float lx, ly;
     if (!windowToLogical(mx, my, lx, ly)) return;
 
     if (gState.mode() == Mode::Menu) {
         const int hit = gMenu.hitTest(lx, ly);
-        if (hit == 0) startGame(Theme::Desert);
-        if (hit == 1) startGame(Theme::Jungle);
+        if (hit == 0) startIntro(Theme::Desert);
+        if (hit == 1) startIntro(Theme::Jungle);
         return;
     }
 
@@ -480,6 +522,7 @@ int main(int argc, char** argv) {
     gMonkey.init();
     gDino.init();
     gRoshni.init();
+    gSiam.init();
     gObstacle.init();
     gPoints.init();
     gDragon.init();
@@ -495,11 +538,18 @@ int main(int argc, char** argv) {
     glutIgnoreKeyRepeat(1);
 
     if (gShotPath) {
-        if (std::strcmp(gShotWorld, "desert") == 0) startGame(Theme::Desert);
+        if      (std::strcmp(gShotWorld, "desert") == 0) startGame(Theme::Desert);
         else if (std::strcmp(gShotWorld, "jungle") == 0) startGame(Theme::Jungle);
+        else if (std::strcmp(gShotWorld, "introjungle") == 0) startIntro(Theme::Jungle);
+        else if (std::strcmp(gShotWorld, "intro") == 0 ||
+                 std::strcmp(gShotWorld, "introdesert") == 0) startIntro(Theme::Desert);
+
         if (gState.mode() == Mode::Playing) {
             for (float s = 0.0f; s < gShotWarmup; s += 1.0f / 60.0f)
                 stepWorld(1.0f / 60.0f);
+        } else if (gState.mode() == Mode::Intro) {
+            for (float s = 0.0f; s < gShotWarmup; s += 1.0f / 60.0f)
+                gIntro.update(1.0f / 60.0f);
         }
     }
 

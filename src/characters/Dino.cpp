@@ -420,8 +420,9 @@ void drawDust(float hipX, float phase) {
     glDisable(GL_BLEND);
 }
 
-// draw the whole running animal in local 0..100 space
-void drawTRex(float gait) {
+// draw the whole running animal in local 0..100 space.
+// jawOverride >= 0 forces a fixed jaw gape (intro chomp); < 0 = animated jaw.
+void drawTRex(float gait, float jawOverride = -1.0f, float headPitch = 0.0f, bool dust = true) {
     float nearPhase = gait;
     float farPhase  = fmodf(gait + PI, 2 * PI);
 
@@ -430,11 +431,15 @@ void drawTRex(float gait) {
     float headNod = 4.0f * sinf(gait + 0.6f);
     float armSw   = 9.0f * sinf(gait + PI);
     float tailWag = 6.0f * sinf(gait + 1.2f);
-    float jaw     = 2.0f + 1.6f * (0.5f + 0.5f * sinf(2.0f * gait));  // hungry chomp
+    float jaw     = (jawOverride >= 0.0f)
+                    ? jawOverride
+                    : 2.0f + 1.6f * (0.5f + 0.5f * sinf(2.0f * gait));  // hungry chomp
 
     drawShadow(bodyY);
-    drawDust(NEAR_HIP_X, nearPhase);
-    drawDust(FAR_HIP_X,  farPhase);
+    if (dust) {
+        drawDust(NEAR_HIP_X, nearPhase);
+        drawDust(FAR_HIP_X,  farPhase);
+    }
 
     // far leg (behind body)
     drawLeg(FAR_HIP_X, FAR_HIP_Y + bodyY, farPhase, true);
@@ -459,7 +464,7 @@ void drawTRex(float gait) {
 
     glPushMatrix();
     glTranslatef(64, 56, 0);
-    glRotatef(headNod, 0, 0, 1);
+    glRotatef(headNod + headPitch, 0, 0, 1);
     glTranslatef(-64, -56, 0);
     drawHead(jaw);
     glPopMatrix();
@@ -480,6 +485,10 @@ void Dino::init() {
     m_gait     = 0.0f;
     m_darkness = 0.0f;
     m_speed    = 1.0f;
+    m_worldX   = DINO_X;
+    m_jawOverride = -1.0f;
+    m_headPitch = 0.0f;
+    m_dust = true;
 }
 
 void Dino::update(float dt, GameState& state) {
@@ -496,11 +505,11 @@ void Dino::draw() const {
     const float lean  = -5.0f;                 // leans into the chase (toward +x)
 
     glPushMatrix();
-    glTranslatef(DINO_X + lunge, cfg::GROUND_Y, 0.0f);
+    glTranslatef(m_worldX + lunge, cfg::GROUND_Y, 0.0f);
     glScalef(DINO_SCALE, DINO_SCALE, 1.0f);
     glRotatef(lean, 0.0f, 0.0f, 1.0f);         // pivot about the feet
     glTranslatef(-ANCHOR_X, -LGND, 0.0f);
-    drawTRex(m_gait);
+    drawTRex(m_gait, m_jawOverride, m_headPitch, m_dust);
     glPopMatrix();
 
     sTint = 1.0f;

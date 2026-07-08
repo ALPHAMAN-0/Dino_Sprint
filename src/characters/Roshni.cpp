@@ -203,13 +203,17 @@ void drawKurti() {
 // forward -- and the elbow is solved with 2-link IK bending outward, so the
 // bent-arm swing reads as a run without the forearm winging out sideways.
 // `f` in [0,1]: 0 = fully back/low, 1 = forward/high.
-void drawArm(bool leftSide, float f) {
+// `raise` (0..1) throws the forward hand up and outward above the head -- used
+// for the intro scream pose; 0 keeps the normal running/jumping swing.
+void drawArm(bool leftSide, float f, float raise = 0.0f) {
     const float sx = leftSide ? 43.0f : 57.0f;   // shoulder
     const float sy = 62.5f;
     const float UP = 9.5f, FORE = 9.0f;
 
     float hipX = leftSide ? 39.0f : 61.0f, hipY = 46.5f;   // hand back-swing target
     float chX  = leftSide ? 49.5f : 50.5f, chY  = 59.0f;   // hand forward target (near chest)
+    chY += 24.0f * raise;                                   // ...thrown overhead when screaming
+    chX += (leftSide ? -4.0f : 4.0f) * raise;               // ...and spread outward
     float hx = hipX + (chX - hipX) * f;
     float hy = hipY + (chY - hipY) * f;
 
@@ -254,7 +258,7 @@ void drawHairBack() {
     glPopMatrix();
 }
 
-void drawFace() {
+void drawFace(bool scream = false) {
     setColor(235, 195, 160);
     drawEllipse(50, 78, 6.4f, 7.4f);
     drawCircle(43.8f, 78.5f, 1.2f, 20);
@@ -316,14 +320,21 @@ void drawFace() {
     glEnd();
     glLineWidth(1);
 
-    setColor(200, 60, 70);
-    drawEllipse(50.0f, 74.4f, 1.9f, 0.85f);
-    setColor(150, 40, 50);
-    glLineWidth(1.5f);
-    glBegin(GL_LINES);
-    glVertex2f(48.2f, 74.4f); glVertex2f(51.8f, 74.4f);
-    glEnd();
-    glLineWidth(1.0f);
+    if (scream) {                                   // wide-open shocked mouth
+        setColor(70, 22, 28);
+        drawEllipse(50.0f, 73.0f, 2.6f, 3.4f);
+        setColor(200, 90, 100);                     // tongue hint
+        drawEllipse(50.0f, 71.9f, 1.3f, 1.2f);
+    } else {                                        // relaxed lips
+        setColor(200, 60, 70);
+        drawEllipse(50.0f, 74.4f, 1.9f, 0.85f);
+        setColor(150, 40, 50);
+        glLineWidth(1.5f);
+        glBegin(GL_LINES);
+        glVertex2f(48.2f, 74.4f); glVertex2f(51.8f, 74.4f);
+        glEnd();
+        glLineWidth(1.0f);
+    }
 }
 
 void drawHairFrontLocks() {
@@ -354,34 +365,58 @@ void drawHairFrontLocks() {
     glPopMatrix();
 }
 
-// draw the whole running/leaping girl in local 0..100 space
-void drawRoshni(float run, bool air) {
+// draw the whole running/leaping/standing/screaming girl in local 0..100 space
+void drawRoshni(float run, bool air, Roshni::Pose pose = Roshni::Pose::Running) {
+    const bool idle   = (pose == Roshni::Pose::Idle);
+    const bool scream = (pose == Roshni::Pose::Scream);
+
     float lL = fmaxf(0.0f, sinf(run + PI));
     float rL = fmaxf(0.0f, sinf(run));
-    float bodyY   = air ? 0.0f : 2.4f * fmaxf(lL, rL);   // two bobs per stride
-    float lean    = air ? -13.0f : -11.0f;               // driving forward lean
-    float fR      = 0.5f + 0.5f * cosf(run);             // right arm fwd/back, antiphase to
-    float fL      = 0.5f - 0.5f * cosf(run);             // right leg; left arm opposite again
-    sHairSway     = air ? 8.0f : (-3.0f + 5.0f * sinf(run + 0.5f));
+    float bodyY, lean, fL, fR, armRaise;
+
+    if (idle) {                                 // calm stand
+        bodyY = 0.0f; lean = -2.0f;
+        fL = fR = 0.22f; armRaise = 0.0f;       // arms hang low
+        sHairSway = 0.5f;
+    } else if (scream) {                        // shocked recoil, arms thrown up
+        bodyY = 3.0f; lean = 15.0f;
+        fL = fR = 1.0f; armRaise = 1.0f;
+        sHairSway = 16.0f;
+    } else {                                    // Running (and jump)
+        bodyY = air ? 0.0f : 2.4f * fmaxf(lL, rL);   // two bobs per stride
+        lean  = air ? -13.0f : -11.0f;               // driving forward lean
+        fR    = 0.5f + 0.5f * cosf(run);             // right arm fwd/back, antiphase to
+        fL    = 0.5f - 0.5f * cosf(run);             // right leg; left arm opposite again
+        armRaise = 0.0f;
+        sHairSway = air ? 8.0f : (-3.0f + 5.0f * sinf(run + 0.5f));
+    }
 
     float hipY = 34.0f + bodyY;
 
     // legs (behind the tunic); left leg is the far side, right in front
-    drawLeg(46.5f, hipY, run + PI, air, true);
-    drawLeg(53.5f, hipY, run,      air, false);
+    if (idle || scream) {                       // planted stance, no stride
+        drawLeg(46.5f, hipY, 5.5f,   false, true);    // far foot slightly back
+        drawLeg(53.5f, hipY, 4.712f, false, false);   // near foot under the hip
+    } else {
+        drawLeg(46.5f, hipY, run + PI, air, true);
+        drawLeg(53.5f, hipY, run,      air, false);
+    }
 
-    // upper body: bob + forward lean about the hips
+    // upper body: bob + lean about the hips
     glPushMatrix();
     glTranslatef(0, bodyY, 0);
     glTranslatef(50, 34, 0);
     glRotatef(lean, 0, 0, 1);
     glTranslatef(-50, -34, 0);
 
+    const float armL = (idle || scream) ? fL : (air ? 1.0f : fL);
+    const float armR = (idle || scream) ? fR : (air ? 1.0f : fR);
+
     drawHairBack();
     drawKurti();
-    drawArm(true,  air ? 1.0f : fL);         // left arm opposite the left leg
-    drawArm(false, air ? 1.0f : fR);         // right arm opposite the right leg
-    drawFace();
+    drawArm(true,  armL, armRaise);          // left arm opposite the left leg
+    drawArm(false, armR, armRaise);          // right arm opposite the right leg
+    drawFace(scream);
     drawHairFrontLocks();
     glPopMatrix();
 }
@@ -394,6 +429,7 @@ void drawRoshni(float run, bool air) {
 void Roshni::init() {
     m_run = 0.0f; m_jumpY = 0.0f; m_vy = 0.0f; m_onGround = true;
     m_darkness = 0.0f; m_speed = 1.0f;
+    m_worldX = ROSHNI_X; m_pose = Pose::Running;
 }
 
 void Roshni::jump() {
@@ -404,7 +440,7 @@ void Roshni::update(float dt, GameState& state) {
     m_darkness = state.darkness();
     m_speed    = state.speedMultiplier();
 
-    if (m_onGround) {
+    if (m_onGround && m_pose == Pose::Running) {
         m_run += 2.0f * PI * RUN_HZ * m_speed * dt;
         if (m_run >= 2.0f * PI) m_run = fmodf(m_run, 2.0f * PI);
     }
@@ -420,10 +456,10 @@ void Roshni::draw() const {
     sTint = 1.0f - 0.45f * m_darkness;
 
     glPushMatrix();
-    glTranslatef(ROSHNI_X, cfg::GROUND_Y + m_jumpY, 0.0f);
+    glTranslatef(m_worldX, cfg::GROUND_Y + m_jumpY, 0.0f);
     glScalef(ROSHNI_SCALE, ROSHNI_SCALE, 1.0f);
     glTranslatef(-ANCHOR_X, -FEET, 0.0f);
-    drawRoshni(m_run, !m_onGround);
+    drawRoshni(m_run, !m_onGround, m_pose);
     glPopMatrix();
 
     sTint = 1.0f;

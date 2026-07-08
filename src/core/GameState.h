@@ -3,7 +3,7 @@
 
 enum class Theme { Desert, Jungle };
 
-enum class Mode { Menu, Playing };
+enum class Mode { Menu, Intro, Playing };
 
 class GameState {
 public:
