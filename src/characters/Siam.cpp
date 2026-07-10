@@ -98,19 +98,23 @@ void drawLeg(float hipX, float hipY, float kneeX, float kneeY, float ankX, float
     glPopMatrix();
 }
 
-// ---------- one arm, rotated about the shoulder by `deg` ----------
-void drawArm(float shX, float shY, float elX, float elY, float haX, float haY,
-             float deg, bool nearSide) {
-    glPushMatrix();
-    glTranslatef(shX, shY, 0.0f);
-    glRotatef(deg, 0.0f, 0.0f, 1.0f);
-    glTranslatef(-shX, -shY, 0.0f);
-    if (nearSide) setColor(44, 116, 200); else setColor(30, 88, 160);   // sleeve base / shadow
-    drawLimb(shX, shY, elX, elY, 3.0f, 2.5f);
-    if (nearSide) setColor(176, 124, 84); else setColor(140, 96, 62);   // forearm skin
-    drawLimb(elX, elY, haX, haY, 2.3f, 1.8f);
-    drawCircle(haX, haY, 2.3f, 14);                                     // hand
-    glPopMatrix();
+// ---------- one articulated arm (upper arm + forearm, bending elbow) ----------
+// Rest and raised poses each give an elbow + hand; `raise` (0..1) blends them
+// and `wig` adds a side-to-side wave/thrash. Keeps a natural elbow bend at every
+// raise instead of a rigid rotated stick.
+void drawArm(float sx, float sy,
+             float rEx, float rEy, float rHx, float rHy,     // rest elbow / hand
+             float uEx, float uEy, float uHx, float uHy,     // raised elbow / hand
+             float raise, float wig, bool nearSide) {
+    float ex = rEx + (uEx - rEx) * raise + wig * 0.35f;
+    float ey = rEy + (uEy - rEy) * raise;
+    float hx = rHx + (uHx - rHx) * raise + wig;
+    float hy = rHy + (uHy - rHy) * raise;
+    if (nearSide) setColor(44, 116, 200); else setColor(30, 88, 160);   // upper arm (sleeve)
+    drawLimb(sx, sy, ex, ey, 3.0f, 2.5f);
+    if (nearSide) setColor(176, 124, 84); else setColor(140, 96, 62);   // forearm (skin)
+    drawLimb(ex, ey, hx, hy, 2.4f, 1.8f);
+    drawCircle(hx, hy, 2.3f, 14);                                       // hand
 }
 
 // ============================================================
@@ -132,10 +136,14 @@ void drawSiam(float bobPh, float waveRaise, float flail, float ph) {
     glPushMatrix();
     glTranslatef(0.0f, bobY, 0.0f);
 
-    // far arm (behind torso): rests, or flails up-back
+    // far arm (behind torso): hangs by the side, or flails up-back when eaten
     {
-        float up = flail * 118.0f + flail * 22.0f * sinf(ph * 12.0f + 1.3f);
-        drawArm(42.0f, 70.0f, 40.0f, 58.0f, 41.0f, 47.0f, -up, false);
+        float raise = flail;
+        float wig   = flail * 6.0f * sinf(ph * 12.0f + 1.3f);
+        drawArm(42.0f, 70.0f,
+                39.5f, 59.0f, 39.0f, 47.0f,       // rest: hanging at the side
+                34.0f, 77.0f, 37.0f, 90.0f,       // raised: elbow out, forearm up
+                raise, -wig, false);
     }
 
     // ----- TORSO / blue collared shirt -----
@@ -270,12 +278,15 @@ void drawSiam(float bobPh, float waveRaise, float flail, float ph) {
     setColor(150, 104, 68);                                          // under-lip shadow
     drawArc(50.0f, 76.7f, 1.9f, 210, 330, 0.9f);
 
-    // ----- NEAR ARM (front): calm wave, or frantic flail -----
+    // ----- NEAR ARM (front): calm greeting-wave, or frantic flail -----
     {
         float raise = fmaxf(waveRaise, flail);
-        float wig   = (flail > 0.01f) ? flail * 24.0f * sinf(ph * 12.0f)
-                                      : waveRaise * 4.0f * sinf(ph * 6.0f);
-        drawArm(58.0f, 70.0f, 60.0f, 58.0f, 60.0f, 47.0f, raise * 150.0f + wig, true);
+        float wig   = (flail > 0.01f) ? flail * 6.0f * sinf(ph * 12.0f)
+                                      : waveRaise * 3.5f * sinf(ph * 6.5f);
+        drawArm(58.0f, 70.0f,
+                60.0f, 59.0f, 59.0f, 48.0f,       // rest: hanging at the side
+                66.0f, 77.0f, 63.0f, 90.0f,       // raised: elbow out, forearm up by the head (wave)
+                raise, wig, true);
     }
 
     glPopMatrix();  // end upper-body group
