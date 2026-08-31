@@ -1953,8 +1953,6 @@ void drawMenu()
     drawText(300, 260, "Choose an animation");
     drawText(300, 220, "Press 1 - DreamWorld");
     drawText(300, 190, "Press 2 - DreamHell");
-    drawText(300, 160, "Press 3 - Dino");
-    drawText(300, 130, "Press 4 - Roshni");
 }
 
 void display()
@@ -1972,20 +1970,6 @@ void display()
             drawDreamHell();
 
         drawGame(groundOffset);
-    }
-    else if (selected == 3)
-    {
-        glPushMatrix();
-        glTranslatef(dinoGetX(), 0, 0);
-        drawDino();
-        glPopMatrix();
-    }
-    else if (selected == 4)
-    {
-        glPushMatrix();
-        glTranslatef(0, playerGetY() - 92, 0);
-        drawPlayer();
-        glPopMatrix();
     }
     else
     {
@@ -2023,15 +2007,6 @@ void update(int value)
 
     if (selected == 1 || selected == 2)
         animateGame();
-    else if (selected == 3)
-        dinoAnimate(4.0f);
-    else if (selected == 4)
-    {
-        playerAnimate(4.0f);
-
-        if (playerIsJumping())
-            playerJumpUpdate();
-    }
 
     glutPostRedisplay();
     glutTimerFunc(16, update, 0);
@@ -2044,21 +2019,6 @@ void keyboard(unsigned char key, int x, int y)
 
     if (key == '2')
         selected = 2;
-
-    if (key == '3')
-    {
-        selected = 3;
-        dinoReset();
-    }
-
-    if (key == '4')
-    {
-        selected = 4;
-        playerReset();
-    }
-
-    if (key == ' ' && selected == 4)
-        playerJumpStart();
 
     if (selected == 1 || selected == 2)
         gameKeyPress(key);
