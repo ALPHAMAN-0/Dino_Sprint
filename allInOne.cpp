@@ -26,9 +26,19 @@
 // them now.
 //
 // Standalone build (from this file alone):
-//   clang++ -framework GLUT -framework OpenGL allInOne.cpp -o allInOne
+//   macOS:   clang++ -framework GLUT -framework OpenGL allInOne.cpp -o allInOne
+//   Windows: open ONLY this file as a Code::Blocks project (MinGW + freeglut)
+//            and link: -lfreeglut -lopengl32 -lglu32
+//            Do NOT add roshni.cpp or referance.cpp to that project -- each of
+//            them has its own main(), which collides with the main() below.
 
-#include <GLUT/glut.h>
+#ifdef _WIN32
+    #include <windows.h>
+    #include <GL/glut.h>      // Windows / Code::Blocks (MinGW + freeglut)
+#else
+    #include <GLUT/glut.h>    // macOS (GLUT framework)
+#endif
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
