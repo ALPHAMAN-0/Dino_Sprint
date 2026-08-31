@@ -1947,12 +1947,65 @@ static void gameKeyPress(unsigned char key)
 // MENU + GLUT WIRING   (originally main.cpp)
 // ===========================================================================
 
+// centered vector title text -- GLUT_STROKE_ROMAN scales, unlike the
+// fixed-size bitmap font drawText() uses, so it's the only way to get
+// a big logo-sized heading
+void drawStrokeText(float centerX, float y, float scale, const char *text)
+{
+    float width = 0.0f;
+
+    for (const char *c = text; *c; c++)
+        width += glutStrokeWidth(GLUT_STROKE_ROMAN, *c);
+
+    width *= scale;
+
+    glPushMatrix();
+    glTranslatef(centerX - width / 2.0f, y, 0);
+    glScalef(scale, scale, 1.0f);
+    glLineWidth(2.5f);
+
+    for (const char *c = text; *c; c++)
+        glutStrokeCharacter(GLUT_STROKE_ROMAN, *c);
+
+    glLineWidth(1.0f);
+    glPopMatrix();
+}
+
+void drawTextCentered(float centerX, float y, const char *text)
+{
+    int width = 0;
+
+    for (const char *c = text; *c; c++)
+        width += glutBitmapWidth(GLUT_BITMAP_HELVETICA_18, *c);
+
+    drawText(centerX - width / 2.0f, y, text);
+}
+
 void drawMenu()
 {
-    glColor3f(0.0f, 0.0f, 0.0f);
-    drawText(300, 260, "Choose an animation");
-    drawText(300, 220, "Press 1 - DreamWorld");
-    drawText(300, 190, "Press 2 - DreamHell");
+    // dark panel background
+    glColor3f(0.08f, 0.10f, 0.18f);
+    drawRect(0, 0, WIDTH, HEIGHT);
+
+    // gold accent border frame
+    glColor3f(0.95f, 0.75f, 0.20f);
+    drawRect(20, 20, WIDTH - 20, 26);
+    drawRect(20, HEIGHT - 26, WIDTH - 20, HEIGHT - 20);
+    drawRect(20, 20, 26, HEIGHT - 20);
+    drawRect(WIDTH - 26, 20, WIDTH - 20, HEIGHT - 20);
+
+    // title / logo
+    glColor3f(0.95f, 0.75f, 0.20f);
+    drawStrokeText(WIDTH / 2.0f, 320, 0.32f, "STONE RUNNER");
+
+    // subtitle
+    glColor3f(0.85f, 0.85f, 0.90f);
+    drawTextCentered(WIDTH / 2.0f, 270, "Choose an animation");
+
+    // options, evenly spaced
+    glColor3f(1.0f, 1.0f, 1.0f);
+    drawTextCentered(WIDTH / 2.0f, 210, "1  -  DreamWorld");
+    drawTextCentered(WIDTH / 2.0f, 170, "2  -  DreamHell");
 }
 
 void display()
@@ -1973,8 +2026,6 @@ void display()
     }
     else
     {
-        glColor3f(1.0f, 1.0f, 1.0f);
-        drawRect(0, 0, WIDTH, HEIGHT);
         drawMenu();
     }
 
