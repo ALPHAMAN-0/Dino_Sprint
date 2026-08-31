@@ -1,5 +1,10 @@
 #include "DreamWorld.h"
-#include <GLUT/glut.h>
+#ifdef _WIN32
+    #include <windows.h>
+    #include <GL/glut.h>      // Windows / Code::Blocks (MinGW + freeglut)
+#else
+    #include <GLUT/glut.h>    // macOS (GLUT framework)
+#endif
 
 // drawRect / drawCircle are the small shared shape helpers already
 // defined in roshni.cpp -- declared here, not redefined, so this file

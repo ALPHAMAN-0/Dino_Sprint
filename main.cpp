@@ -2,7 +2,12 @@
 #include "DreamHell.h"
 #include "dragon.h"
 #include "roshni_player.h"
-#include <GLUT/glut.h>
+#ifdef _WIN32
+    #include <windows.h>
+    #include <GL/glut.h>      // Windows / Code::Blocks (MinGW + freeglut)
+#else
+    #include <GLUT/glut.h>    // macOS (GLUT framework)
+#endif
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

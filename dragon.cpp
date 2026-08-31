@@ -1,5 +1,10 @@
 #include "dragon.h"
-#include <GLUT/glut.h>
+#ifdef _WIN32
+    #include <windows.h>
+    #include <GL/glut.h>      // Windows / Code::Blocks (MinGW + freeglut)
+#else
+    #include <GLUT/glut.h>    // macOS (GLUT framework)
+#endif
 
 // drawRect is the small shared shape helper already defined in
 // roshni.cpp -- declared here, not redefined, so this file links
