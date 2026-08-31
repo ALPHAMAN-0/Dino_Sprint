@@ -134,9 +134,6 @@ void resetGame()
     gameState=1;
 }
 
-// ---------- ground ----------
-// Just a thin grey line so you can see where the ground is.
-// Delete this whole function (and its call in display) for a fully blank screen.
 void drawGroundLine()
 {
     glColor3f(0.55f,0.55f,0.55f);
@@ -504,8 +501,6 @@ void checkCoins()
 
 void checkStones()
 {
-    // still counting down after the last hit — skip so one touch
-    // can't remove more than one life
     if(hitTimer>0)
         return;
 
@@ -622,8 +617,6 @@ void display()
     }
     else
     {
-        // caught / game over: player drawn first, dino drawn after so it
-        // paints on top of her — this is what looks like a real catch
         glPushMatrix();
         glTranslatef(0,playerY-92,0);
         drawPlayer();

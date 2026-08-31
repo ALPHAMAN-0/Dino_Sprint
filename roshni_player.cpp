@@ -6,9 +6,6 @@
     #include <GLUT/glut.h>    // macOS (GLUT framework)
 #endif
 
-// The shared shape helpers DreamWorld.cpp and DreamHell.cpp both
-// declare as extern -- this file owns main(), so it supplies them,
-// same role roshni.cpp plays for the full game.
 extern void drawRect(float x1, float y1, float x2, float y2);
 extern void drawCircle(float cx, float cy, float r);
 

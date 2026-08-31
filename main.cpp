@@ -16,9 +16,6 @@
 #define WIDTH  800
 #define HEIGHT 450
 
-// The shared shape helpers DreamWorld.cpp and DreamHell.cpp both
-// declare as extern -- this file owns main(), so it supplies them,
-// same role roshni.cpp plays for the full game.
 void drawRect(float x1, float y1, float x2, float y2)
 {
     glBegin(GL_QUADS);
@@ -53,10 +50,6 @@ void drawText(float x, float y, const char *text)
 
 // 0 = menu, 1 = DreamWorld, 2 = DreamHell, 3 = Dino, 4 = Roshni
 int selected = 0;
-
-// ---------- Stone Runner game logic, shared by the DreamWorld and
-// DreamHell scenes (ported from the standalone referance.cpp
-// prototype, same characters as dragon.h/roshni_player.h) ----------
 
 // 0 = start, 1 = playing, 2 = game over, 3 = caught
 static int gameState = 0;
@@ -167,8 +160,6 @@ static void checkCoins()
 
 static void checkStones()
 {
-    // still counting down after the last hit -- skip so one touch
-    // can't remove more than one life
     if (hitTimer>0)
         return;
 
@@ -280,10 +271,6 @@ static void resetRun()
     gameState=0;
 }
 
-// groundOffset lifts every game object onto whichever scene is
-// showing -- DreamWorld's brick path sits at y=92 (offset 0) but
-// DreamHell's sand sits higher, at y=110 (offset 18), so without
-// this the runner would look sunk into the desert.
 static void drawGame(float groundOffset)
 {
     for (int i=0; i<4; i++)
@@ -324,8 +311,6 @@ static void drawGame(float groundOffset)
     }
     else
     {
-        // caught / game over: player drawn first, dino drawn after so
-        // it paints on top of her -- this is what looks like a real catch
         glPushMatrix();
         glTranslatef(0,playerGetY()-92+groundOffset,0);
         drawPlayer();
@@ -383,8 +368,6 @@ static void animateGame()
         if (playerIsJumping())
             playerJumpUpdate();
 
-        // legs move faster when they run faster -- same runSpeed drives
-        // both dinoAnimate() and playerAnimate()'s leg-delay formula
         playerAnimate(runSpeed);
         dinoAnimate(runSpeed);
 
@@ -424,9 +407,6 @@ static void gameKeyPress(unsigned char key)
     }
 }
 
-// centered vector title text -- GLUT_STROKE_ROMAN scales, unlike the
-// fixed-size bitmap font drawText() uses, so it's the only way to get
-// a big logo-sized heading
 void drawStrokeText(float centerX, float y, float scale, const char *text)
 {
     float width = 0.0f;
@@ -522,12 +502,6 @@ void display()
 
 void update(int value)
 {
-    // freeze the scenery once the run ends, same as the runner itself
-    // (gameState==2 is Game Over); clouds still drift in DreamWorld,
-    // that's backgroundAnimate()'s own "always advance" behaviour.
-    // Ground scroll speed must match runSpeed -- the stones/coins move
-    // at runSpeed, so a mismatched ground speed makes them look like
-    // they're sliding across the brick path instead of sitting on it.
     if (selected == 1)
         backgroundAnimate(runSpeed, gameState != 2);
     else if (selected == 2 && gameState != 2)

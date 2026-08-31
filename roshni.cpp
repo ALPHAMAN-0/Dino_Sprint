@@ -561,8 +561,6 @@ void drawGround()
     glColor3f(0.45f,0.17f,0.07f);
     drawRect(0,0,800,70);
 
-    // moving brick rows — each brick is the same fixed shape,
-    // just moved to a new spot with glTranslatef
     glPushMatrix();
     glTranslatef(-brickScroll,0,0);
 
@@ -962,8 +960,6 @@ void checkCoins()
 
 void checkStones()
 {
-    // still counting down after the last hit — skip so one touch
-    // can't remove more than one life
     if(hitTimer>0)
         return;
 
@@ -1130,8 +1126,6 @@ void display()
     }
     else
     {
-        // caught / game over: player drawn first, dino drawn after so it
-        // paints on top of her — this is what looks like a real catch
         glPushMatrix();
         glTranslatef(0,playerY-92,0);
         drawPlayer();

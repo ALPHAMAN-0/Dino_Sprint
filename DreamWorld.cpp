@@ -6,9 +6,6 @@
     #include <GLUT/glut.h>    // macOS (GLUT framework)
 #endif
 
-// drawRect / drawCircle are the small shared shape helpers already
-// defined in roshni.cpp -- declared here, not redefined, so this file
-// links straight into roshni.cpp without a duplicate-symbol error.
 extern void drawRect(float x1, float y1, float x2, float y2);
 extern void drawCircle(float cx, float cy, float r);
 
@@ -444,8 +441,6 @@ static void drawGround()
     glColor3f(0.45f,0.17f,0.07f);
     drawRect(0,0,800,70);
 
-    // moving brick rows -- each brick is the same fixed shape,
-    // just moved to a new spot with glTranslatef
     glPushMatrix();
     glTranslatef(-brickScroll,0,0);
 

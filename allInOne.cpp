@@ -1,37 +1,3 @@
-// allInOne.cpp
-//
-// Single-file consolidation of the live "Stone Runner" build, assembled
-// purely as a reading aid: main.cpp (hub + shared run-game logic) plus
-// its four linked modules -- DreamWorld, DreamHell, dragon, roshni_player
-// -- concatenated into one translation unit, in the order each piece is
-// actually needed (shared drawRect/drawCircle/drawText helpers first,
-// then the four modules, then the run-game logic and GLUT wiring last,
-// exactly matching main.cpp's own top-to-bottom order once the modules
-// are spliced in between its helpers and its game logic).
-//
-// This file is NOT part of the build -- main.cpp, DreamWorld.cpp,
-// DreamHell.cpp, dragon.cpp and roshni_player.cpp are still the real
-// source files to edit; the compiled dino_sprint binary in this repo
-// was built from those, not from this file. Behavior here is
-// byte-for-byte identical to the split files, with exactly ONE change
-// forced by merging into a single translation unit: DreamWorld.cpp and
-// DreamHell.cpp each privately (`static`) defined their own drawSky(),
-// drawMountains() and drawGround() -- fine as separate files, but a
-// hard duplicate-definition compile error in one file. DreamHell's
-// three were renamed drawHellSky/drawHellMountains/drawHellGround
-// (call sites inside drawDreamHell() updated to match); DreamWorld's
-// keep their original names. Every `extern` declaration the split
-// files used to reach drawRect/drawCircle/drawText across files is
-// simply gone -- those are just defined above everything that calls
-// them now.
-//
-// Standalone build (from this file alone):
-//   macOS:   clang++ -framework GLUT -framework OpenGL allInOne.cpp -o allInOne
-//   Windows: open ONLY this file as a Code::Blocks project (MinGW + freeglut)
-//            and link: -lfreeglut -lopengl32 -lglu32
-//            Do NOT add roshni.cpp or referance.cpp to that project -- each of
-//            them has its own main(), which collides with the main() below.
-
 #ifdef _WIN32
     #include <windows.h>
     #include <GL/glut.h>      // Windows / Code::Blocks (MinGW + freeglut)
@@ -46,11 +12,6 @@
 
 #define WIDTH  800
 #define HEIGHT 450
-
-// ===========================================================================
-// SHARED SHAPE HELPERS   (originally main.cpp)
-// Every module below draws with just these three primitives.
-// ===========================================================================
 
 void drawRect(float x1, float y1, float x2, float y2)
 {
@@ -83,20 +44,6 @@ void drawText(float x, float y, const char *text)
     while (*text)
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *text++);
 }
-
-// ===========================================================================
-// MODULE: DreamWorld   (originally Header/DreamWorld.h + DreamWorld.cpp)
-// Grass/brick scene: sky, sun, drifting clouds, parallax mountains,
-// background bushes, tree/bushes/flowers, and the scrolling
-// brick-and-grass ground. Coins, stones, the dino and the player are
-// gameplay objects, not scenery, so they live in their own sections.
-//
-// drawBackground() paints the whole scene back-to-front at the origin.
-// backgroundAnimate(speed, running) advances every scroll offset by one
-// frame: cloudScroll always advances (even when the game isn't
-// running); hillScroll/bushScroll/treeScroll/brickScroll/grassScroll
-// only advance while running is true.
-// ===========================================================================
 
 static float cloudScroll = 0;
 static float hillScroll  = 0;
@@ -530,8 +477,6 @@ static void drawGround()
     glColor3f(0.45f,0.17f,0.07f);
     drawRect(0,0,800,70);
 
-    // moving brick rows -- each brick is the same fixed shape,
-    // just moved to a new spot with glTranslatef
     glPushMatrix();
     glTranslatef(-brickScroll,0,0);
 
@@ -666,23 +611,6 @@ void backgroundAnimate(float speed, bool running)
             grassScroll=grassScroll-24;
     }
 }
-
-// ===========================================================================
-// MODULE: DreamHell   (originally Header/DreamHell.h + DreamHell.cpp)
-// Desert scene: sky, a spinning sun, drifting clouds, birds, parallax
-// mountains, cacti, rocks, a cow skull, and bouncing tumbleweeds over a
-// sandy ground.
-//
-// drawDreamHell() paints the whole scene at the origin, back to front.
-// dreamHellAnimate() advances the scene's own clock (gTime) by one
-// frame and spins the sun a little further -- unlike DreamWorld, none
-// of this scrolling is driven by the game's runSpeed (see the
-// known-quirks note in the run-game section below).
-//
-// drawSky/drawMountains/drawGround are renamed drawHellSky/
-// drawHellMountains/drawHellGround here -- see the file header comment
-// for why (DreamWorld already defines those three names).
-// ===========================================================================
 
 #define PI 3.14159265f
 
@@ -856,15 +784,6 @@ static void drawHellMountains()
 }
 
 ////////
-/*
-   THE GROUND  -  the BOTTOM of the picture
-    drawRock
-    sand
-    drawCactus
-    drawSkull
-    Drawrock
-    drawTumbleweed
-*/
 
 static void drawHellGround()
 {
@@ -885,8 +804,6 @@ static void drawHellGround()
     drawRect(0, 110, 800, 165);
 }
 
-/* A rock. One flat six-sided lump.
-   w = half its width, h = half its height. */
 static void drawRock(float x, float y, float w, float h)
 {
     glColor3f(0.62f, 0.47f, 0.28f);
@@ -900,9 +817,6 @@ static void drawRock(float x, float y, float w, float h)
     glEnd();
 }
 
-/* A big cactus. It is just five green boxes:
-   one tall box standing up, and two arms made of two boxes each.
-   Every box is four corners: bottom-left, bottom-right, top-right, top-left. */
 static void drawCactus(float x, float bottom)
 {
     glColor3f(0.20f, 0.47f, 0.26f);
@@ -1016,8 +930,6 @@ static void drawTumbleweed(float cx, float groundY, float r, float speed)
             glVertex2f(-d,  d);   glVertex2f( d, -d);
         glEnd();
 
-        /* the outside edge: eight dots joined in a ring,
-           two of them pulled inward so it looks tangled */
         glColor3f(0.63f, 0.48f, 0.26f);
         glBegin(GL_LINE_LOOP);
             glVertex2f( r,  0);
@@ -1089,11 +1001,6 @@ static void drawSkull(float x, float y)
     glEnd();
 }
 
-/* ==================================================================
-   PUTTING IT ALL TOGETHER
-   paint sky first, ground last -- caller does glClear/glutSwapBuffers
-   ================================================================== */
-
 void drawDreamHell()
 {
     drawHellSky();
@@ -1162,15 +1069,6 @@ void dreamHellAnimate()
     if (sunAngle > 360.0f)
         sunAngle -= 360.0f;
 }
-
-// ===========================================================================
-// MODULE: dragon   (originally Header/dragon.h + dragon.cpp)
-// The dino/dragon antagonist. drawDino() paints it at the origin -- the
-// caller positions it in the world via glTranslatef(dinoGetX(), 0, 0).
-// dinoChase() is a purely scripted +4/frame sprint toward x>=200; it
-// takes no player-position input at all (see the run-game section for
-// where the actual catch decision is made).
-// ===========================================================================
 
 static float dinoX = 115;
 static int   dinoPose = 1;
@@ -1280,16 +1178,6 @@ void dinoReset()
     dinoPose=1;
     dinoCounter=0;
 }
-
-// ===========================================================================
-// MODULE: roshni_player   (originally Header/roshni_player.h + roshni_player.cpp)
-// The playable girl. drawPlayer() paints her at the origin -- legs
-// first (whichever running pose is current), then the body on top so
-// the dress hides the leg tops. The caller positions her in the world
-// via glTranslatef(0, playerGetY()-92, 0). Jump physics are
-// semi-implicit Euler: playerY += jumpSpeed; jumpSpeed -= 0.5 (gravity),
-// landing/resetting once she reaches playerY<=92.
-// ===========================================================================
 
 static float playerY = 92;
 static float jumpSpeed = 0;
@@ -1568,12 +1456,6 @@ void playerReset()
     playerCounter = 0;
 }
 
-// ===========================================================================
-// STONE RUNNER GAME LOGIC   (originally main.cpp, shared by DreamWorld
-// and DreamHell scenes; ported near line-for-line from the standalone
-// referance.cpp prototype)
-// ===========================================================================
-
 // 0 = menu, 1 = DreamWorld, 2 = DreamHell, 3 = Dino, 4 = Roshni
 int selected = 0;
 
@@ -1686,8 +1568,6 @@ static void checkCoins()
 
 static void checkStones()
 {
-    // still counting down after the last hit -- skip so one touch
-    // can't remove more than one life
     if (hitTimer>0)
         return;
 
@@ -1799,10 +1679,6 @@ static void resetRun()
     gameState=0;
 }
 
-// groundOffset lifts every game object onto whichever scene is
-// showing -- DreamWorld's brick path sits at y=92 (offset 0) but
-// DreamHell's sand sits higher, at y=110 (offset 18), so without
-// this the runner would look sunk into the desert.
 static void drawGame(float groundOffset)
 {
     for (int i=0; i<4; i++)
@@ -1843,8 +1719,6 @@ static void drawGame(float groundOffset)
     }
     else
     {
-        // caught / game over: player drawn first, dino drawn after so
-        // it paints on top of her -- this is what looks like a real catch
         glPushMatrix();
         glTranslatef(0,playerGetY()-92+groundOffset,0);
         drawPlayer();
@@ -1902,8 +1776,6 @@ static void animateGame()
         if (playerIsJumping())
             playerJumpUpdate();
 
-        // legs move faster when they run faster -- same runSpeed drives
-        // both dinoAnimate() and playerAnimate()'s leg-delay formula
         playerAnimate(runSpeed);
         dinoAnimate(runSpeed);
 
@@ -1943,13 +1815,6 @@ static void gameKeyPress(unsigned char key)
     }
 }
 
-// ===========================================================================
-// MENU + GLUT WIRING   (originally main.cpp)
-// ===========================================================================
-
-// centered vector title text -- GLUT_STROKE_ROMAN scales, unlike the
-// fixed-size bitmap font drawText() uses, so it's the only way to get
-// a big logo-sized heading
 void drawStrokeText(float centerX, float y, float scale, const char *text)
 {
     float width = 0.0f;
@@ -2045,12 +1910,6 @@ void display()
 
 void update(int value)
 {
-    // freeze the scenery once the run ends, same as the runner itself
-    // (gameState==2 is Game Over); clouds still drift in DreamWorld,
-    // that's backgroundAnimate()'s own "always advance" behaviour.
-    // Ground scroll speed must match runSpeed -- the stones/coins move
-    // at runSpeed, so a mismatched ground speed makes them look like
-    // they're sliding across the brick path instead of sitting on it.
     if (selected == 1)
         backgroundAnimate(runSpeed, gameState != 2);
     else if (selected == 2 && gameState != 2)

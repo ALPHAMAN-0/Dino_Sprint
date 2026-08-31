@@ -10,10 +10,6 @@
 
 #define PI 3.14159265f
 
-// drawRect is the small shared shape helper already defined in
-// main.cpp -- declared here, not redefined, so this file links
-// straight into main.cpp without a duplicate-symbol error, same
-// pattern DreamWorld.cpp already uses.
 extern void drawRect(float x1, float y1, float x2, float y2);
 
 static float gTime    = 0.0f;
@@ -186,15 +182,6 @@ static void drawMountains()
 }
 
 ////////
-/*
-   THE GROUND  -  the BOTTOM of the picture
-    drawRock
-    sand
-    drawCactus
-    drawSkull
-    Drawrock
-    drawTumbleweed
-*/
 
 static void drawGround()
 {
@@ -215,8 +202,6 @@ static void drawGround()
     drawRect(0, 110, 800, 165);
 }
 
-/* A rock. One flat six-sided lump.
-   w = half its width, h = half its height. */
 static void drawRock(float x, float y, float w, float h)
 {
     glColor3f(0.62f, 0.47f, 0.28f);
@@ -230,9 +215,6 @@ static void drawRock(float x, float y, float w, float h)
     glEnd();
 }
 
-/* A big cactus. It is just five green boxes:
-   one tall box standing up, and two arms made of two boxes each.
-   Every box is four corners: bottom-left, bottom-right, top-right, top-left. */
 static void drawCactus(float x, float bottom)
 {
     glColor3f(0.20f, 0.47f, 0.26f);
@@ -346,8 +328,6 @@ static void drawTumbleweed(float cx, float groundY, float r, float speed)
             glVertex2f(-d,  d);   glVertex2f( d, -d);
         glEnd();
 
-        /* the outside edge: eight dots joined in a ring,
-           two of them pulled inward so it looks tangled */
         glColor3f(0.63f, 0.48f, 0.26f);
         glBegin(GL_LINE_LOOP);
             glVertex2f( r,  0);
@@ -418,11 +398,6 @@ static void drawSkull(float x, float y)
         glVertex2f(x + 2, y + 5);
     glEnd();
 }
-
-/* ==================================================================
-   PUTTING IT ALL TOGETHER
-   paint sky first, ground last -- caller does glClear/glutSwapBuffers
-   ================================================================== */
 
 void drawDreamHell()
 {

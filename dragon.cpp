@@ -6,9 +6,6 @@
     #include <GLUT/glut.h>    // macOS (GLUT framework)
 #endif
 
-// drawRect is the small shared shape helper already defined in
-// roshni.cpp -- declared here, not redefined, so this file links
-// straight into roshni.cpp without a duplicate-symbol error.
 extern void drawRect(float x1, float y1, float x2, float y2);
 
 static float dinoX = 115;
