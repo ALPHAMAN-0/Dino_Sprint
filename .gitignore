@@ -1,0 +1,18 @@
+# Compiled binaries
+dino_sprint
+*.o
+*.obj
+*.exe
+*.out
+*.dSYM/
+
+# Code::Blocks build artifacts
+bin/
+obj/
+*.depend
+*.layout
+
+# macOS
+.DS_Store
+config.bat
+node_modules
