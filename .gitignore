@@ -11,8 +11,5 @@ bin/
 obj/
 *.depend
 *.layout
-
 # macOS
 .DS_Store
-config.bat
-node_modules
